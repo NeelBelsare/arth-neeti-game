@@ -16,9 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+
+
+def health_check(request):
+    return JsonResponse({
+        'status': 'ok',
+        'message': 'Arth-Neeti API is running!',
+        'endpoints': {
+            'start_game': '/api/start-game/',
+            'get_card': '/api/get-card/{session_id}/',
+            'submit_choice': '/api/submit-choice/',
+            'use_lifeline': '/api/use-lifeline/',
+        }
+    })
+
 
 urlpatterns = [
+    path('', health_check, name='health'),
     path('admin/', admin.site.urls),
     path('api/', include('game_engine.urls')),
 ]
-
