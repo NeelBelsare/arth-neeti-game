@@ -2,7 +2,8 @@
 
 > A card-based financial decision-making game that teaches young Indians smart money habits through real-life scenarios.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)
+![License](https://img.shields.io/badge/license-Proprietary-red.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-green.svg)
 ![React](https://img.shields.io/badge/react-18+-61DAFB.svg)
 
@@ -94,9 +95,10 @@ Built for the **NCFE Financial Literacy Hackathon**, Arth-Neeti teaches:
 
 ## 📄 Documentation
 
-- [Backend README](./arth-neeti-game/backend/README.md) - API endpoints, models
-- [Frontend README](./arth-neeti-game/frontend/README.md) - Components, state management
+- [Backend README](./backend/README.md) - API endpoints, models
+- [Frontend README](./frontend/README.md) - Components, state management
 - [Contributing Guide](./CONTRIBUTING.md) - How to contribute
+- [Changelog](./CHANGELOG.md) - Version history
 
 ## 🤝 Contributing
 
