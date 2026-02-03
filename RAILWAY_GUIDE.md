@@ -35,7 +35,7 @@ This guide will help you deploy the Arth-Neeti game (Backend + Database + Fronte
 
 5.  **Configure Build/Start Command** (If not auto-detected):
     *   Railway usually detects `Procfile`.
-    *   Build Command: `pip install -r backend/requirements.txt && python backend/manage.py migrate`
+    *   Build Command: `pip install -r backend/requirements.txt && python backend/manage.py migrate && python backend/manage.py collectstatic --noinput`
     *   Start Command: `gunicorn backend.core.wsgi:application`
     *   **Root Directory**: `/backend` (Important! Set this in Settings -> Root Directory)
 
@@ -57,6 +57,7 @@ This guide will help you deploy the Arth-Neeti game (Backend + Database + Fronte
 3.  **Configure Settings**:
     *   **Root Directory**: `/frontend` (Important!)
     *   **Build Command**: `npm install && npm run build`
+    *   **Start Command**: `npm start`
     *   **Output Directory**: `dist`
 
 4.  **Deploy**: Click Deploy.
