@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { playSound } from '../utils/sound';
 
 const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }) => {
     const [hints, setHints] = useState(null);
     const [isUsingLifeline, setIsUsingLifeline] = useState(false);
+    const [cardKey, setCardKey] = useState(0);
+    const [selectedChoice, setSelectedChoice] = useState(null);
+
+    // Trigger card flip animation on new card
+    useEffect(() => {
+        if (card) {
+            setCardKey(prev => prev + 1);
+            setHints(null);
+            setSelectedChoice(null);
+            playSound('cardFlip');
+        }
+    }, [card?.id]);
 
     if (!card) return null;
 
@@ -28,10 +41,12 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }
     const handleUseLifeline = async () => {
         if (!session || session.lifelines <= 0 || isUsingLifeline) return;
 
+        playSound('click');
         setIsUsingLifeline(true);
         try {
             const result = await onUseLifeline(card.id);
             if (result && result.hints) {
+                playSound('levelUp');
                 // Convert hints array to object for easy lookup
                 const hintsMap = {};
                 result.hints.forEach(h => {
@@ -46,6 +61,18 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }
         }
     };
 
+    const handleChoiceClick = (choice) => {
+        if (disabled || selectedChoice) return;
+
+        playSound('click');
+        setSelectedChoice(choice.id);
+
+        // Add ripple effect class then call parent
+        setTimeout(() => {
+            onChoiceSelect(choice);
+        }, 150);
+    };
+
     const isRecommended = (choiceId) => {
         return hints && hints[choiceId];
     };
@@ -53,7 +80,7 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }
     const lifelines = session?.lifelines ?? 0;
 
     return (
-        <div className="scenario-card animate-slideUp">
+        <div key={cardKey} className="scenario-card card-flip-animation">
             <div className="scenario-header">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <span className={`scenario-category ${card.category}`}>
@@ -61,16 +88,20 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }
                     </span>
                     {lifelines > 0 && !hints && (
                         <button
-                            className="lifeline-btn"
+                            className="lifeline-btn pulse-on-hover"
                             onClick={handleUseLifeline}
                             disabled={isUsingLifeline}
                             title="Ask NCFE for advice"
                         >
-                            💡 Ask NCFE ({lifelines})
+                            {isUsingLifeline ? (
+                                <span className="loading-spinner" style={{ width: 14, height: 14 }}></span>
+                            ) : (
+                                <>💡 Ask NCFE ({lifelines})</>
+                            )}
                         </button>
                     )}
                     {hints && (
-                        <span className="lifeline-used">✨ Hint Active</span>
+                        <span className="lifeline-used celebrate-bounce">✨ Hint Active</span>
                     )}
                 </div>
                 <h2 className="scenario-title">{card.title}</h2>
@@ -79,12 +110,13 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }
 
             <div className="scenario-body">
                 <div className="choices-container">
-                    {card.choices.map((choice) => (
+                    {card.choices.map((choice, index) => (
                         <button
                             key={choice.id}
-                            className={`choice-btn ${isRecommended(choice.id) ? 'recommended' : ''}`}
-                            onClick={() => onChoiceSelect(choice)}
+                            className={`choice-btn ${isRecommended(choice.id) ? 'recommended' : ''} ${selectedChoice === choice.id ? 'selected' : ''}`}
+                            onClick={() => handleChoiceClick(choice)}
                             disabled={disabled}
+                            style={{ animationDelay: `${index * 0.1}s` }}
                         >
                             {isRecommended(choice.id) && (
                                 <span className="recommended-badge">⭐ NCFE Recommended</span>
@@ -104,4 +136,3 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline }
 };
 
 export default ScenarioCard;
-

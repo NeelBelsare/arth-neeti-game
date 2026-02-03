@@ -947,6 +947,199 @@ class Command(BaseCommand):
                         'is_recommended': False
                     }
                 ]
+            },
+            # SCENARIO 35 - SOCIAL
+            {
+                'title': "Parents' Anniversary Gift",
+                'description': "Parents' 25th anniversary coming up! Siblings suggest a ₹40,000 gold chain. Your budget is ₹10,000.",
+                'category': 'SOCIAL',
+                'difficulty': 2,
+                'min_month': 2,
+                'choices': [
+                    {
+                        'text': "Split equally - pay ₹20,000 share",
+                        'wealth_impact': -20000,
+                        'happiness_impact': 10,
+                        'credit_impact': 0,
+                        'literacy_impact': -10,
+                        'feedback': "Overspending on gifts creates financial stress. Love isn't measured in rupees!",
+                        'is_recommended': False
+                    },
+                    {
+                        'text': "Contribute ₹10,000 + plan a home celebration",
+                        'wealth_impact': -10000,
+                        'happiness_impact': 15,
+                        'credit_impact': 0,
+                        'literacy_impact': 15,
+                        'feedback': "Perfect balance! A heartfelt home party with your presence means more than expensive gifts. Communicate your budget honestly.",
+                        'is_recommended': True
+                    }
+                ]
+            },
+            # SCENARIO 36 - INVESTMENT
+            {
+                'title': "Diwali Bonus Strategy",
+                'description': "You received a ₹50,000 Diwali bonus! Options: New phone upgrade, trip to Manali, or boost your investment portfolio?",
+                'category': 'INVESTMENT',
+                'difficulty': 2,
+                'min_month': 4,
+                'choices': [
+                    {
+                        'text': "Celebrate! New phone + weekend trip (₹50,000)",
+                        'wealth_impact': -50000,
+                        'happiness_impact': 25,
+                        'credit_impact': 0,
+                        'literacy_impact': -15,
+                        'feedback': "Bonuses feel like 'free money' but they're part of your income. Lifestyle inflation eats wealth-building potential!",
+                        'is_recommended': False
+                    },
+                    {
+                        'text': "Invest 70% (₹35k) + small treat (₹15k)",
+                        'wealth_impact': -15000,
+                        'happiness_impact': 10,
+                        'credit_impact': 5,
+                        'literacy_impact': 25,
+                        'feedback': "The 70-30 bonus rule! ₹35k invested annually for 20 years at 12% = ₹28 Lakh. Celebrate wisely, build wealth smartly!",
+                        'is_recommended': True
+                    }
+                ]
+            }
+            ,
+            # NEW SCENARIOS - ROUND 2 EXPANSION
+            {
+                'title': "Unexpected Home Repair",
+                'description': "Pipe burst in the bathroom! Plumber estimates repairs will cost ₹15,000 immediately.",
+                'category': 'EMERGENCY',
+                'difficulty': 3,
+                'min_month': 3,
+                'choices': [
+                    {
+                        'text': "Dip into Emergency Fund",
+                        'wealth_impact': -15000,
+                        'happiness_impact': -5,
+                        'credit_impact': 0,
+                        'literacy_impact': 10,
+                        'feedback': "Good job! This is exactly what emergency funds are for—unplanned expenses without debt.",
+                        'is_recommended': True
+                    },
+                    {
+                        'text': "Pay using Credit Card (EMI)",
+                        'wealth_impact': -16500,
+                        'happiness_impact': 0,
+                        'credit_impact': -5,
+                        'literacy_impact': -5,
+                        'feedback': "Credit works, but EMIs add interest costs. You'll pay nearly ₹1,500 extra in interest!",
+                        'is_recommended': False
+                    }
+                ]
+            },
+            {
+                'title': "Comfort Zone vs. Challenge",
+                'description': "Offered a new role: More responsibility, slightly higher pay (+₹5k/month), but high stress. Current role is comfortable.",
+                'category': 'CAREER',
+                'difficulty': 2,
+                'min_month': 2,
+                'choices': [
+                    {
+                        'text': "Stay comfortable",
+                        'wealth_impact': 0,
+                        'happiness_impact': 5,
+                        'credit_impact': 0,
+                        'literacy_impact': -5,
+                        'feedback': "Comfort is nice, but growth happens outside it. Early career is the time to take risks!",
+                        'is_recommended': False
+                    },
+                    {
+                        'text': "Take the challenge!",
+                        'wealth_impact': 5000,
+                        'happiness_impact': -5,
+                        'credit_impact': 5,
+                        'literacy_impact': 15,
+                        'feedback': "Growth mindset! The skills you learn now will compound your earnings far more than the ₹5k raise.",
+                        'is_recommended': True
+                    }
+                ]
+            },
+            {
+                'title': "Co-signing a Loan",
+                'description': "A close friend can't get a car loan and asks you to co-sign. They promise to pay every EMI on time.",
+                'category': 'SOCIAL',
+                'difficulty': 5,
+                'min_month': 4,
+                'choices': [
+                    {
+                        'text': "Co-sign to help a friend",
+                        'wealth_impact': 0,
+                        'happiness_impact': 10,
+                        'credit_impact': -10,
+                        'literacy_impact': -20,
+                        'feedback': "High Risk! If they default, YOU are 100% liable. It also eats up your credit limit. Never co-sign unless you can pay it off.",
+                        'is_recommended': False
+                    },
+                    {
+                        'text': "Politely refuse",
+                        'wealth_impact': 0,
+                        'happiness_impact': -5,
+                        'credit_impact': 0,
+                        'literacy_impact': 10,
+                        'feedback': "Hard but necessary. Protect your financial reputation. Co-signing is the #1 way to ruin credit scores and friendships.",
+                        'is_recommended': True
+                    }
+                ]
+            },
+            {
+                'title': "Last Minute Tax Panic",
+                'description': "It's March! You haven't done any tax saving. Agent offers a traditional insurance policy to save tax quickly.",
+                'category': 'TRAP',
+                'difficulty': 3,
+                'min_month': 11,
+                'choices': [
+                    {
+                        'text': "Buy the policy to save tax",
+                        'wealth_impact': -30000,
+                        'happiness_impact': 5,
+                        'credit_impact': 0,
+                        'literacy_impact': -10,
+                        'feedback': "Don't let the tax tail wag the investment dog! Bad products sold in March hurt you for years.",
+                        'is_recommended': False
+                    },
+                    {
+                        'text': "Pay the tax this year, plan better next time",
+                        'wealth_impact': -10000,
+                        'happiness_impact': -10,
+                        'credit_impact': 0,
+                        'literacy_impact': 10,
+                        'feedback': "Painful but smart. Paying tax is better than locking money in a low-return product for 20 years!",
+                        'is_recommended': True
+                    }
+                ]
+            },
+            {
+                'title': "Lifestyle Inflation",
+                'description': "You got a raise! Should you move to a bigger apartment? Rent is ₹10k higher, but it has a balcony!",
+                'category': 'WANTS',
+                'difficulty': 2,
+                'min_month': 6,
+                'choices': [
+                    {
+                        'text': "Upgrade! I earned it.",
+                        'wealth_impact': -10000,
+                        'happiness_impact': 15,
+                        'credit_impact': 0,
+                        'literacy_impact': -10,
+                        'feedback': "Beware lifestyle creep! If spending rises with income, you never get wealthy. Keep expenses flat, invest the raise.",
+                        'is_recommended': False
+                    },
+                    {
+                        'text': "Stay put, invest the raise",
+                        'wealth_impact': -2000,
+                        'happiness_impact': 0,
+                        'credit_impact': 5,
+                        'literacy_impact': 20,
+                        'feedback': "Wealth builder move! Increasing the gap between income and expense is the secret to early financial freedom.",
+                        'is_recommended': True
+                    }
+                ]
             }
         ]
 

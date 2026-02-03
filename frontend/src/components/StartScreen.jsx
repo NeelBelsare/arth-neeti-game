@@ -1,39 +1,69 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { playSound } from '../utils/sound';
 
 const StartScreen = ({ onStartGame, isLoading }) => {
+    const [displayedText, setDisplayedText] = useState('');
+    const [showFeatures, setShowFeatures] = useState(false);
+    const fullText = "The Strategy of Wealth — Navigate your first 5 years of career. Make smart decisions. Build your future.";
+
+    // Typewriter effect
+    useEffect(() => {
+        let index = 0;
+        const timer = setInterval(() => {
+            if (index < fullText.length) {
+                setDisplayedText(fullText.slice(0, index + 1));
+                index++;
+            } else {
+                clearInterval(timer);
+                setTimeout(() => setShowFeatures(true), 300);
+            }
+        }, 30);
+
+        return () => clearInterval(timer);
+    }, []);
+
+    const handleStartClick = () => {
+        playSound('click');
+        onStartGame();
+    };
+
     return (
         <div className="start-screen">
-            <div className="start-logo">🏦</div>
+            {/* Animated Logo */}
+            <div className="start-logo floating-animation">🏦</div>
 
-            <h1 className="start-title">Arth-Neeti</h1>
-            <p className="start-subtitle">
-                The Strategy of Wealth — Navigate your first 5 years of career.
-                Make smart decisions. Build your future.
+            <h1 className="start-title shimmer-text">Arth-Neeti</h1>
+
+            <p className="start-subtitle typewriter-text">
+                {displayedText}
+                <span className="cursor-blink">|</span>
             </p>
 
-            <div className="start-features">
-                <div className="feature-item glass">
-                    <div className="feature-icon">💰</div>
+            {/* Feature Cards with Staggered Animation */}
+            <div className={`start-features ${showFeatures ? 'features-visible' : ''}`}>
+                <div className="feature-item glass feature-delay-1">
+                    <div className="feature-icon bounce-animation">💰</div>
                     <div className="feature-title">Manage Wealth</div>
                     <div className="feature-desc">Starting salary: ₹25,000/month</div>
                 </div>
 
-                <div className="feature-item glass">
-                    <div className="feature-icon">😊</div>
+                <div className="feature-item glass feature-delay-2">
+                    <div className="feature-icon bounce-animation">😊</div>
                     <div className="feature-title">Stay Happy</div>
                     <div className="feature-desc">Balance work and life</div>
                 </div>
 
-                <div className="feature-item glass">
-                    <div className="feature-icon">📊</div>
+                <div className="feature-item glass feature-delay-3">
+                    <div className="feature-icon bounce-animation">📊</div>
                     <div className="feature-title">Build Credit</div>
                     <div className="feature-desc">Make smart financial choices</div>
                 </div>
             </div>
 
+            {/* Enhanced CTA Button */}
             <button
-                className="btn btn-primary btn-lg animate-pulse"
-                onClick={onStartGame}
+                className="btn btn-primary btn-lg glow-button"
+                onClick={handleStartClick}
                 disabled={isLoading}
             >
                 {isLoading ? (
@@ -42,13 +72,22 @@ const StartScreen = ({ onStartGame, isLoading }) => {
                         Starting...
                     </>
                 ) : (
-                    '🎮 Start Game'
+                    <>
+                        <span className="btn-icon">🎮</span>
+                        Start Your Journey
+                    </>
                 )}
             </button>
 
-            <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                Learn financial literacy through real-life scenarios
-            </p>
+            {/* NCFE Branding */}
+            <div className="ncfe-branding">
+                <p className="powered-by">Powered by</p>
+                <div className="ncfe-logo-container">
+                    <span className="ncfe-badge">NCFE</span>
+                    <span className="ncfe-text">National Centre for Financial Education</span>
+                </div>
+                <p className="tagline">Learn financial literacy through real-life scenarios</p>
+            </div>
         </div>
     );
 };

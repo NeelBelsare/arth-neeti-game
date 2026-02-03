@@ -5,6 +5,7 @@ import ScenarioCard from './components/ScenarioCard';
 import FeedbackModal from './components/FeedbackModal';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
+import ParticleBackground from './components/ParticleBackground';
 import './App.css';
 import './components/ReportModal.css';
 
@@ -253,6 +254,7 @@ function App() {
 
     return (
         <div className="app">
+            <ParticleBackground intensity="normal" />
             {renderContent()}
         </div>
     );

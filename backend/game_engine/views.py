@@ -18,7 +18,20 @@ def start_game(request):
     """
     Start a new game session.
     For demo purposes, creates/uses a demo user if not authenticated.
+    
+    SECURITY NOTE: 
+    This implementation uses a guest user pattern where session_id is the primary token.
+    In a production environment, this should be replaced with signed JWTs stored in HTTP-only cookies
+    to prevent session hijacking (guessing session IDs).
     """
+    # Game Configuration Constants
+    GAME_CONFIG = {
+        'STARTING_WEALTH': 25000,
+        'HAPPINESS_START': 100,
+        'CREDIT_SCORE_START': 700,
+        'START_MONTH': 1
+    }
+
     # Get or create a user for the session
     if request.user.is_authenticated:
         user = request.user
@@ -33,10 +46,10 @@ def start_game(request):
     # Create a new game session
     session = GameSession.objects.create(
         user=user,
-        wealth=25000,      # Starting salary
-        happiness=100,     # Full happiness
-        credit_score=700,  # Average credit score
-        current_month=1
+        wealth=GAME_CONFIG['STARTING_WEALTH'],
+        happiness=GAME_CONFIG['HAPPINESS_START'],
+        credit_score=GAME_CONFIG['CREDIT_SCORE_START'],
+        current_month=GAME_CONFIG['START_MONTH']
     )
 
     serializer = GameSessionSerializer(session)
@@ -129,9 +142,19 @@ def submit_choice(request):
     session.credit_score += choice.credit_impact
     session.financial_literacy += choice.literacy_impact
 
+    # Game Rules Configuration
+    GAME_CONFIG = {
+        'CARDS_PER_MONTH': 3,
+        'GAME_DURATION_MONTHS': 12,
+        'MIN_HAPPINESS': 0,
+        'MAX_HAPPINESS': 100,
+        'MIN_CREDIT': 300,
+        'MAX_CREDIT': 900
+    }
+
     # Clamp values
-    session.happiness = max(0, min(100, session.happiness))
-    session.credit_score = max(300, min(900, session.credit_score))
+    session.happiness = max(GAME_CONFIG['MIN_HAPPINESS'], min(GAME_CONFIG['MAX_HAPPINESS'], session.happiness))
+    session.credit_score = max(GAME_CONFIG['MIN_CREDIT'], min(GAME_CONFIG['MAX_CREDIT'], session.credit_score))
 
     # Log the choice
     PlayerChoice.objects.create(
@@ -148,17 +171,17 @@ def submit_choice(request):
         game_over = True
         game_over_reason = 'BANKRUPTCY'
         session.is_active = False
-    elif session.happiness <= 0:
+    elif session.happiness <= GAME_CONFIG['MIN_HAPPINESS']:
         game_over = True
         game_over_reason = 'BURNOUT'
         session.is_active = False
 
-    # Advance month every 3 choices (3 cards per month × 12 months = 36 cards for 1-year game)
+    # Advance month every X choices
     choices_count = PlayerChoice.objects.filter(session=session).count()
-    session.current_month = (choices_count // 3) + 1
+    session.current_month = (choices_count // GAME_CONFIG['CARDS_PER_MONTH']) + 1
 
-    # Check if 1 year (12 months) completed - hackathon-friendly game length
-    if session.current_month > 12:
+    # Check if game duration completed
+    if session.current_month > GAME_CONFIG['GAME_DURATION_MONTHS']:
         game_over = True
         game_over_reason = 'COMPLETED'
         session.is_active = False

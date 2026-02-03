@@ -1,7 +1,7 @@
 /* ========== GameStats Component ========== */
 .stats-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--space-md);
     padding: var(--space-lg);
     background: var(--bg-card);
@@ -12,12 +12,72 @@
 
 .stat-item {
     display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm);
+    border-radius: var(--radius-md);
+    transition: background var(--transition-normal);
+}
+
+/* Circular progress container */
+.stat-circle-container {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+}
+
+.stat-circle {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.stat-circle-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 6;
+}
+
+.stat-circle-progress {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease-out;
+}
+
+.stat-circle-progress.success {
+    stroke: var(--success);
+}
+
+.stat-circle-progress.danger {
+    stroke: var(--danger);
+}
+
+.stat-circle-progress.warning {
+    stroke: var(--warning);
+}
+
+.stat-circle-progress.primary {
+    stroke: var(--primary);
+}
+
+.stat-circle-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+}
+
+.stat-info {
+    display: flex;
     flex-direction: column;
-    gap: var(--space-xs);
+    gap: 2px;
 }
 
 .stat-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text-muted);
@@ -25,11 +85,9 @@
 }
 
 .stat-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+    transition: all var(--transition-normal);
 }
 
 .stat-value.positive {
@@ -44,14 +102,10 @@
     color: var(--warning);
 }
 
-.stat-icon {
-    font-size: 1.25rem;
-}
-
 /* Month indicator - Enhanced Calendar Style */
 .month-indicator {
     text-align: center;
-    padding: var(--space-lg) var(--space-md);
+    padding: var(--space-md);
     background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     border-radius: var(--radius-lg);
     font-weight: 700;
@@ -59,6 +113,10 @@
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .month-indicator::before {
@@ -70,20 +128,58 @@
     opacity: 0.15;
 }
 
-.month-indicator>div {
-    font-size: 1.5rem;
+.month-number {
+    font-size: 1.25rem;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     color: #fff;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.month-indicator span {
-    font-size: 0.8rem;
+.year-text {
+    font-size: 0.7rem;
     opacity: 0.9;
     color: rgba(255, 255, 255, 0.9);
     font-weight: 500;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+}
+
+/* Responsive Stats Bar */
+@media (max-width: 768px) {
+    .stats-bar {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stat-circle-container {
+        width: 50px;
+        height: 50px;
+    }
+
+    .stat-circle-icon {
+        font-size: 1.2rem;
+    }
+
+    .stat-value {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-bar {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-sm);
+        padding: var(--space-md);
+    }
+
+    .stat-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .stat-info {
+        align-items: center;
+    }
 }
 
 /* ========== Scenario Card Component ========== */
@@ -401,21 +497,20 @@
     justify-content: center;
     padding: var(--space-xl);
     text-align: center;
+    position: relative;
+    z-index: 1;
 }
 
 .start-logo {
-    font-size: 4rem;
+    font-size: 5rem;
     margin-bottom: var(--space-lg);
-    animation: pulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.5));
 }
 
 .start-title {
-    font-size: 3rem;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: var(--space-sm);
+    font-size: 3.5rem;
+    margin-bottom: var(--space-md);
+    letter-spacing: -0.02em;
 }
 
 .start-subtitle {
@@ -423,36 +518,152 @@
     color: var(--text-secondary);
     margin-bottom: var(--space-2xl);
     max-width: 500px;
+    min-height: 3rem;
+    line-height: 1.6;
 }
 
+.typewriter-text {
+    display: inline;
+}
+
+/* Feature cards with staggered animation */
 .start-features {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--space-lg);
     margin-bottom: var(--space-2xl);
-    max-width: 600px;
+    max-width: 700px;
+    width: 100%;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.start-features.features-visible {
+    opacity: 1;
 }
 
 .feature-item {
-    padding: var(--space-lg);
+    padding: var(--space-xl);
     background: var(--bg-card);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.4s ease, transform 0.3s ease;
+}
+
+.features-visible .feature-item {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.feature-delay-1 {
+    transition-delay: 0.1s;
+}
+
+.feature-delay-2 {
+    transition-delay: 0.25s;
+}
+
+.feature-delay-3 {
+    transition-delay: 0.4s;
+}
+
+.feature-item:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
 }
 
 .feature-icon {
-    font-size: 2rem;
-    margin-bottom: var(--space-sm);
+    font-size: 2.5rem;
+    margin-bottom: var(--space-md);
 }
 
 .feature-title {
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: var(--space-xs);
+    color: var(--text-primary);
+    font-size: 1.1rem;
 }
 
 .feature-desc {
     font-size: 0.875rem;
     color: var(--text-muted);
+}
+
+/* Enhanced CTA Button */
+.glow-button {
+    position: relative;
+    overflow: hidden;
+}
+
+.glow-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 300%;
+    height: 300%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.5s ease;
+}
+
+.glow-button:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.btn-icon {
+    font-size: 1.25rem;
+}
+
+/* NCFE Branding */
+.ncfe-branding {
+    margin-top: var(--space-2xl);
+    text-align: center;
+    animation: fadeIn 1s ease-out 1.5s both;
+}
+
+.powered-by {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: var(--space-sm);
+}
+
+.ncfe-logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.ncfe-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xs) var(--space-md);
+    background: linear-gradient(135deg, #0e7490 0%, #06b6d4 100%);
+    border-radius: var(--radius-sm);
+    color: white;
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+}
+
+.ncfe-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.tagline {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: var(--space-md);
 }
 
 /* ========== Game Over Screen ========== */
