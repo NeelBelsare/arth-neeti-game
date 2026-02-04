@@ -6,11 +6,19 @@ import FeedbackModal from './components/FeedbackModal';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ParticleBackground from './components/ParticleBackground';
+import StockTicker from './components/StockTicker';
+import LoginScreen from './components/LoginScreen';
+import RegisterScreen from './components/RegisterScreen';
 import './App.css';
 import './components/ReportModal.css';
 
+import ProfileScreen from './components/ProfileScreen';
+
 // Game states
 const GAME_STATE = {
+    LOGIN: 'login',
+    REGISTER: 'register',
+    PROFILE: 'profile',
     START: 'start',
     PLAYING: 'playing',
     FEEDBACK: 'feedback',
@@ -18,11 +26,13 @@ const GAME_STATE = {
     LOADING: 'loading',
 };
 
+// ... inside App component ...
 const SESSION_STORAGE_KEY = 'arthneeti_session_id';
 
 function App() {
-    const [gameState, setGameState] = useState(GAME_STATE.START);
+    const [gameState, setGameState] = useState(GAME_STATE.LOADING);
     const [session, setSession] = useState(null);
+    const [username, setUsername] = useState(null);
     const [currentCard, setCurrentCard] = useState(null);
     const [feedback, setFeedback] = useState(null);
     const [gameOverData, setGameOverData] = useState(null);
@@ -30,38 +40,64 @@ function App() {
     const [error, setError] = useState(null);
     const [lang, setLang] = useState('en');
 
-    // Check for existing session on app load
+    // Init: Check for auth token and session
     useEffect(() => {
-        const resumeSession = async () => {
+        const initApp = async () => {
+            const token = localStorage.getItem('auth_token');
+            const savedUsername = localStorage.getItem('username');
+
+            if (!token) {
+                setGameState(GAME_STATE.LOGIN);
+                return;
+            }
+
+            setUsername(savedUsername);
+
+            // Try to resume session
             const savedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
-            if (!savedSessionId) return;
-
-            setIsLoading(true);
-            try {
-                const sessionData = await api.getSession(savedSessionId);
-                if (sessionData.session && sessionData.session.is_active) {
-                    setSession(sessionData.session);
-
-                    // Get next card
-                    const cardData = await api.getCard(savedSessionId);
-                    if (!cardData.game_complete) {
-                        setCurrentCard(cardData.card);
-                        setGameState(GAME_STATE.PLAYING);
+            if (savedSessionId) {
+                try {
+                    const sessionData = await api.getSession(savedSessionId);
+                    if (sessionData.session && sessionData.session.is_active) {
+                        setSession(sessionData.session);
+                        // Get next card
+                        const cardData = await api.getCard(savedSessionId);
+                        if (!cardData.game_complete) {
+                            setCurrentCard(cardData.card);
+                            setGameState(GAME_STATE.PLAYING);
+                            return;
+                        } else {
+                            localStorage.removeItem(SESSION_STORAGE_KEY);
+                        }
                     } else {
                         localStorage.removeItem(SESSION_STORAGE_KEY);
                     }
-                } else {
+                } catch (err) {
+                    console.log('Could not resume session:', err);
                     localStorage.removeItem(SESSION_STORAGE_KEY);
                 }
-            } catch (err) {
-                console.log('Could not resume session:', err);
-                localStorage.removeItem(SESSION_STORAGE_KEY);
-            } finally {
-                setIsLoading(false);
             }
+
+            // If authenticated but no active session
+            setGameState(GAME_STATE.START);
         };
 
-        resumeSession();
+        initApp();
+    }, []);
+
+    // Auth Handlers
+    const handleLoginSuccess = useCallback((data) => {
+        setUsername(data.username);
+        setGameState(GAME_STATE.START);
+    }, []);
+
+    const handleLogout = useCallback(() => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('username');
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        setSession(null);
+        setUsername(null);
+        setGameState(GAME_STATE.LOGIN);
     }, []);
 
     // Start a new game
@@ -179,6 +215,85 @@ function App() {
         }
     }, [session]);
 
+    // Get AI advice for a card
+    const handleGetAIAdvice = useCallback(async (cardId) => {
+        if (!session) return null;
+        try {
+            const result = await api.getAIAdvice(session.id, cardId);
+            return result;
+        } catch (err) {
+            console.error('Failed to get AI advice:', err);
+            return null;
+        }
+    }, [session]);
+
+    // Stock Market 2.0 Handlers
+    const handleBuyStock = useCallback(async (sector, amount) => {
+        if (!session) return null;
+        try {
+            const result = await api.buyStock(session.id, sector, amount);
+            if (result.session) setSession(result.session);
+            return result;
+        } catch (err) {
+            console.error('Failed to buy stock:', err);
+            return { error: err.message };
+        }
+    }, [session]);
+
+    const handleSellStock = useCallback(async (sector, units) => {
+        if (!session) return null;
+        try {
+            const result = await api.sellStock(session.id, sector, units);
+            if (result.session) setSession(result.session);
+            return result;
+        } catch (err) {
+            console.error('Failed to sell stock:', err);
+            return { error: err.message };
+        }
+    }, [session]);
+
+    // Skip current card and get next
+    const handleSkipCard = useCallback(async (cardId) => {
+        if (!session || !cardId) return;
+
+        // Clear current card immediately to show loading state
+        setCurrentCard(null);
+        setIsLoading(true);
+
+        try {
+            // Skip the card (this records it as shown)
+            const result = await api.skipCard(session.id, cardId);
+            if (result.session) {
+                setSession(result.session);
+            }
+
+            // Fetch next card (will exclude the skipped card)
+            const cardData = await api.getCard(session.id);
+            if (cardData.game_complete) {
+                setGameOverData({
+                    reason: 'COMPLETED',
+                    persona: cardData.persona || null,
+                });
+                setGameState(GAME_STATE.GAME_OVER);
+            } else if (cardData.card) {
+                setCurrentCard(cardData.card);
+            }
+        } catch (err) {
+            console.error('Failed to skip card:', err);
+            // If skip failed, try to recover by fetching any card
+            try {
+                const cardData = await api.getCard(session.id);
+                if (cardData.card) {
+                    setCurrentCard(cardData.card);
+                }
+            } catch (e) {
+                console.error('Failed to recover:', e);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    }, [session]);
+
     // Play again
     const handlePlayAgain = useCallback(() => {
         localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -194,57 +309,98 @@ function App() {
     const renderContent = () => {
         if (error) {
             return (
-                <div className="container" style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '100vh',
-                    textAlign: 'center'
-                }}>
+                <div className="container flex-col-center">
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
                     <h2 style={{ marginBottom: '1rem' }}>Connection Error</h2>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>{error}</p>
                     <button className="btn btn-primary" onClick={() => setError(null)}>
                         Try Again
                     </button>
+                    <button className="btn btn-secondary mt-4" onClick={handleLogout}>
+                        Log Out
+                    </button>
                 </div>
             );
         }
 
         switch (gameState) {
+            case GAME_STATE.LOGIN:
+                return (
+                    <LoginScreen
+                        onLoginSuccess={handleLoginSuccess}
+                        onNavigateToRegister={() => setGameState(GAME_STATE.REGISTER)}
+                    />
+                );
+
+            case GAME_STATE.REGISTER:
+                return (
+                    <RegisterScreen
+                        onLoginSuccess={handleLoginSuccess}
+                        onNavigateToLogin={() => setGameState(GAME_STATE.LOGIN)}
+                    />
+                );
+
             case GAME_STATE.START:
-                return <StartScreen onStartGame={handleStartGame} isLoading={isLoading} />;
+                return (
+                    <>
+                        <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
+                            <span className="text-white/80">Welcome, {username}</span>
+                            <button
+                                onClick={() => setGameState(GAME_STATE.PROFILE)}
+                                className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-200 rounded-lg text-sm transition-colors border border-emerald-500/30"
+                            >
+                                Profile
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-200 rounded-lg text-sm transition-colors border border-red-500/30"
+                            >
+                                Log Out
+                            </button>
+                        </div>
+                        <StartScreen onStartGame={handleStartGame} isLoading={isLoading} />
+                    </>
+                );
+
+            case GAME_STATE.PROFILE:
+                return <ProfileScreen onBack={() => setGameState(GAME_STATE.START)} />;
 
             case GAME_STATE.PLAYING:
                 return (
                     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
-                        <div className="language-toggle">
-                            <span>Language:</span>
-                            <div className="language-buttons">
-                                <button
-                                    type="button"
-                                    className={lang === 'en' ? 'active' : ''}
-                                    onClick={() => setLang('en')}
-                                >
-                                    English
-                                </button>
-                                <button
-                                    type="button"
-                                    className={lang === 'hi' ? 'active' : ''}
-                                    onClick={() => setLang('hi')}
-                                >
-                                    हिंदी
-                                </button>
-                                <button
-                                    type="button"
-                                    className={lang === 'mr' ? 'active' : ''}
-                                    onClick={() => setLang('mr')}
-                                >
-                                    मराठी
-                                </button>
+                        <div className="flex justify-between items-center mb-4 px-4 bg-slate-800/50 backdrop-blur-sm rounded-xl py-2">
+                            <div className="language-toggle">
+                                <span>Language:</span>
+                                <div className="language-buttons">
+                                    <button
+                                        type="button"
+                                        className={lang === 'en' ? 'active' : ''}
+                                        onClick={() => setLang('en')}
+                                    >
+                                        En
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={lang === 'hi' ? 'active' : ''}
+                                        onClick={() => setLang('hi')}
+                                    >
+                                        Hi
+                                    </button>
+                                </div>
                             </div>
+                            <button
+                                onClick={handleLogout}
+                                className="text-xs text-red-300 hover:text-red-100 hover:underline"
+                            >
+                                Quit & Logout
+                            </button>
                         </div>
+
+                        <StockTicker
+                            session={session}
+                            onBuy={handleBuyStock}
+                            onSell={handleSellStock}
+                        />
                         <GameStats session={session} />
                         <ScenarioCard
                             card={currentCard}
@@ -253,6 +409,8 @@ function App() {
                             session={session}
                             onUseLifeline={handleUseLifeline}
                             onTakeLoan={handleTakeLoan}
+                            onGetAIAdvice={handleGetAIAdvice}
+                            onSkipCard={handleSkipCard}
                             lang={lang}
                         />
                     </div>
@@ -262,32 +420,6 @@ function App() {
                 return (
                     <>
                         <div className="container" style={{ paddingTop: '2rem' }}>
-                            <div className="language-toggle">
-                                <span>Language:</span>
-                                <div className="language-buttons">
-                                    <button
-                                        type="button"
-                                        className={lang === 'en' ? 'active' : ''}
-                                        onClick={() => setLang('en')}
-                                    >
-                                        English
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={lang === 'hi' ? 'active' : ''}
-                                        onClick={() => setLang('hi')}
-                                    >
-                                        हिंदी
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={lang === 'mr' ? 'active' : ''}
-                                        onClick={() => setLang('mr')}
-                                    >
-                                        मराठी
-                                    </button>
-                                </div>
-                            </div>
                             <GameStats session={session} />
                         </div>
                         <FeedbackModal

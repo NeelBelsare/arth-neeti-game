@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { playSound } from '../utils/sound';
+import { playSound, initAudio } from '../utils/sound';
 
 const StartScreen = ({ onStartGame, isLoading }) => {
     const [displayedText, setDisplayedText] = useState('');
     const [showFeatures, setShowFeatures] = useState(false);
     const fullText = "The Strategy of Wealth — Navigate your first 5 years of career. Make smart decisions. Build your future.";
 
-    // Typewriter effect
+    // Faster typewriter effect
     useEffect(() => {
         let index = 0;
         const timer = setInterval(() => {
@@ -15,14 +15,15 @@ const StartScreen = ({ onStartGame, isLoading }) => {
                 index++;
             } else {
                 clearInterval(timer);
-                setTimeout(() => setShowFeatures(true), 300);
+                setTimeout(() => setShowFeatures(true), 100);
             }
-        }, 30);
+        }, 15); // Faster: 15ms instead of 30ms
 
         return () => clearInterval(timer);
     }, []);
 
     const handleStartClick = () => {
+        initAudio(); // Unlock audio context
         playSound('click');
         onStartGame();
     };

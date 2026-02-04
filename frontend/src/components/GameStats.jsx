@@ -199,6 +199,35 @@ const GameStats = ({ session }) => {
                 </div>
             </div>
 
+            <div className="stat-item relative group cursor-help">
+                <div className="stat-circle-container">
+                    <div className="w-[72px] h-[72px] rounded-full bg-slate-800/50 border border-slate-700 flex items-center justify-center">
+                        <span className="text-2xl">💸</span>
+                    </div>
+                </div>
+                <div className="stat-info">
+                    <span className="stat-label">Monthly Bill</span>
+                    <span className="stat-value text-red-400">
+                        ₹{session.recurring_expenses?.toLocaleString() || 0}
+                    </span>
+                </div>
+
+                {/* Tooltip for Expenses */}
+                {session.active_expenses && session.active_expenses.length > 0 && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Active Subscriptions</h4>
+                        <ul className="space-y-1">
+                            {session.active_expenses.map((exp, idx) => (
+                                <li key={idx} className="flex justify-between text-xs text-slate-300">
+                                    <span>{exp.name}</span>
+                                    <span className="text-red-400">₹{exp.amount}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+
             <div className="month-indicator">
                 <div className="month-number">Month {session.current_month}</div>
                 <span className="year-text">Year {Math.ceil(session.current_month / 12)} of 1</span>

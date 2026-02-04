@@ -3,6 +3,13 @@
 
 let audioContext = null;
 
+export const initAudio = () => {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') {
+        ctx.resume().catch(err => console.log('Audio resume failed:', err));
+    }
+};
+
 const getAudioContext = () => {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -13,6 +20,14 @@ const getAudioContext = () => {
 export const playSound = (type) => {
     try {
         const ctx = getAudioContext();
+
+        // If context is suspended (blocked by browser autoplay policy), try to resume
+        // If it fails or is still suspended, we skip playing to avoid console errors
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => { });
+            return;
+        }
+
         const currentTime = ctx.currentTime;
 
         switch (type) {
@@ -81,27 +96,27 @@ export const playSound = (type) => {
                 const noise = ctx.createBufferSource();
                 const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
                 const data = buffer.getChannelData(0);
-                
+
                 for (let i = 0; i < buffer.length; i++) {
                     data[i] = (Math.random() * 2 - 1) * (1 - i / buffer.length);
                 }
-                
+
                 noise.buffer = buffer;
-                
+
                 const filter = ctx.createBiquadFilter();
                 filter.type = 'bandpass';
                 filter.frequency.setValueAtTime(1000, currentTime);
                 filter.frequency.exponentialRampToValueAtTime(400, currentTime + 0.2);
                 filter.Q.value = 1;
-                
+
                 const gainNode = ctx.createGain();
                 gainNode.gain.setValueAtTime(0.2, currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.2);
-                
+
                 noise.connect(filter);
                 filter.connect(gainNode);
                 gainNode.connect(ctx.destination);
-                
+
                 noise.start();
                 break;
             }
@@ -109,22 +124,22 @@ export const playSound = (type) => {
             case 'levelUp': {
                 // Ascending tones for positive events
                 const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-                
+
                 notes.forEach((freq, index) => {
                     const oscillator = ctx.createOscillator();
                     const gainNode = ctx.createGain();
-                    
+
                     oscillator.connect(gainNode);
                     gainNode.connect(ctx.destination);
-                    
+
                     oscillator.type = 'sine';
                     oscillator.frequency.value = freq;
-                    
+
                     const startTime = currentTime + index * 0.08;
                     gainNode.gain.setValueAtTime(0, startTime);
                     gainNode.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
-                    
+
                     oscillator.start(startTime);
                     oscillator.stop(startTime + 0.15);
                 });
@@ -134,21 +149,21 @@ export const playSound = (type) => {
             case 'gameOver': {
                 // Dramatic finish sound
                 const notes = [392, 349.23, 329.63, 293.66]; // G4, F4, E4, D4 - descending
-                
+
                 notes.forEach((freq, index) => {
                     const oscillator = ctx.createOscillator();
                     const gainNode = ctx.createGain();
-                    
+
                     oscillator.connect(gainNode);
                     gainNode.connect(ctx.destination);
-                    
+
                     oscillator.type = 'triangle';
                     oscillator.frequency.value = freq;
-                    
+
                     const startTime = currentTime + index * 0.2;
                     gainNode.gain.setValueAtTime(0.25, startTime);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
-                    
+
                     oscillator.start(startTime);
                     oscillator.stop(startTime + 0.3);
                 });
@@ -158,21 +173,21 @@ export const playSound = (type) => {
             case 'celebration': {
                 // Cheerful jingle for good choices
                 const notes = [523.25, 659.25, 783.99, 659.25, 783.99, 1046.50];
-                
+
                 notes.forEach((freq, index) => {
                     const oscillator = ctx.createOscillator();
                     const gainNode = ctx.createGain();
-                    
+
                     oscillator.connect(gainNode);
                     gainNode.connect(ctx.destination);
-                    
+
                     oscillator.type = 'sine';
                     oscillator.frequency.value = freq;
-                    
+
                     const startTime = currentTime + index * 0.06;
                     gainNode.gain.setValueAtTime(0.15, startTime);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
-                    
+
                     oscillator.start(startTime);
                     oscillator.stop(startTime + 0.1);
                 });

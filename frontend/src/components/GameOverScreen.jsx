@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Confetti from './Confetti';
+import Leaderboard from './Leaderboard';
+import { api } from '../api';
 import { playSound } from '../utils/sound';
 
 const GameOverScreen = ({ session, persona, reason, onPlayAgain }) => {
     const [showConfetti, setShowConfetti] = useState(false);
     const [animatedStats, setAnimatedStats] = useState(false);
     const [showReport, setShowReport] = useState(false);
+    const [leaderboard, setLeaderboard] = useState([]);
 
     useEffect(() => {
         // Play appropriate sound
@@ -15,6 +18,11 @@ const GameOverScreen = ({ session, persona, reason, onPlayAgain }) => {
         } else {
             playSound('gameOver');
         }
+
+        // Fetch leaderboard
+        api.getLeaderboard()
+            .then(data => setLeaderboard(data.leaderboard || []))
+            .catch(err => console.error('Failed to fetch leaderboard:', err));
 
         // Trigger stat animations after delay
         const timer = setTimeout(() => setAnimatedStats(true), 500);
@@ -223,6 +231,8 @@ const GameOverScreen = ({ session, persona, reason, onPlayAgain }) => {
                         {getReasonEmoji()} {getReasonText()}
                     </span>
                 </div>
+
+                <Leaderboard leaderboard={leaderboard} />
             </div>
         </>
     );

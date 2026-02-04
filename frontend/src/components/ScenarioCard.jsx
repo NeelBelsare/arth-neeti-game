@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { playSound } from '../utils/sound';
 
-const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, onTakeLoan, lang }) => {
+const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, onTakeLoan, onGetAIAdvice, onSkipCard, lang }) => {
     const [hints, setHints] = useState(null);
     const [isUsingLifeline, setIsUsingLifeline] = useState(false);
     const [cardKey, setCardKey] = useState(0);
     const [selectedChoice, setSelectedChoice] = useState(null);
     const [loanMessage, setLoanMessage] = useState(null);
     const [isTakingLoan, setIsTakingLoan] = useState(false);
+    const [aiAdvice, setAIAdvice] = useState(null);
+    const [isGettingAdvice, setIsGettingAdvice] = useState(false);
+    const [isSkipping, setIsSkipping] = useState(false);
 
     // Trigger card flip animation on new card
     useEffect(() => {
@@ -16,6 +19,7 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, 
             setHints(null);
             setSelectedChoice(null);
             setLoanMessage(null);
+            setAIAdvice(null);
             playSound('cardFlip');
         }
         if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -113,6 +117,24 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, 
         window.speechSynthesis.speak(utterance);
     };
 
+    const handleGetAIAdvice = async () => {
+        if (!onGetAIAdvice || isGettingAdvice || aiAdvice) return;
+
+        playSound('click');
+        setIsGettingAdvice(true);
+        try {
+            const result = await onGetAIAdvice(card.id);
+            if (result?.advice) {
+                setAIAdvice(result.advice);
+            }
+        } catch (err) {
+            console.error('Failed to get AI advice:', err);
+            setAIAdvice('Unable to get advice right now. Try again later.');
+        } finally {
+            setIsGettingAdvice(false);
+        }
+    };
+
     const handleTakeLoan = async (loanType) => {
         if (!onTakeLoan || isTakingLoan) return;
 
@@ -132,6 +154,25 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, 
             setIsTakingLoan(false);
         }
     };
+
+    const handleSkipCard = async () => {
+        if (!onSkipCard || isSkipping) return;
+
+        playSound('click');
+        setIsSkipping(true);
+        try {
+            await onSkipCard(card.id);
+        } catch (err) {
+            console.error('Failed to skip card:', err);
+        } finally {
+            setIsSkipping(false);
+        }
+    };
+
+    // Check if any choice requires more money than available
+    const hasExpensiveChoice = card?.choices?.some(
+        choice => choice.wealth_impact < 0 && Math.abs(choice.wealth_impact) > session?.wealth
+    );
 
     return (
         <div key={cardKey} className="scenario-card card-flip-animation">
@@ -165,9 +206,36 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, 
                     {hints && (
                         <span className="lifeline-used celebrate-bounce">✨ Hint Active</span>
                     )}
+                    {!aiAdvice && onGetAIAdvice && (
+                        <button
+                            className="ai-btn pulse-on-hover"
+                            onClick={handleGetAIAdvice}
+                            disabled={isGettingAdvice}
+                            title="Get AI Financial Advice"
+                        >
+                            {isGettingAdvice ? (
+                                <span className="loading-spinner" style={{ width: 14, height: 14 }}></span>
+                            ) : (
+                                <>🤖 Ask AI</>
+                            )}
+                        </button>
+                    )}
                 </div>
                 <h2 className="scenario-title">{displayedTitle}</h2>
                 <p className="scenario-description">{displayedDescription}</p>
+                {aiAdvice && (
+                    <div className="ai-advice-box">
+                        <div className="ai-advice-header">
+                            <span>🤖 AI Financial Advisor</span>
+                            <button
+                                className="close-btn"
+                                onClick={() => setAIAdvice(null)}
+                                title="Close advice"
+                            >×</button>
+                        </div>
+                        <p className="ai-advice-text">{aiAdvice}</p>
+                    </div>
+                )}
             </div>
 
             <div className="scenario-body">
@@ -199,26 +267,51 @@ const ScenarioCard = ({ card, onChoiceSelect, disabled, session, onUseLifeline, 
                     </div>
                 )}
                 <div className="choices-container">
-                    {card.choices.map((choice, index) => (
-                        <button
-                            key={choice.id}
-                            className={`choice-btn ${isRecommended(choice.id) ? 'recommended' : ''} ${selectedChoice === choice.id ? 'selected' : ''}`}
-                            onClick={() => handleChoiceClick(choice)}
-                            disabled={disabled}
-                            style={{ animationDelay: `${index * 0.1}s` }}
-                        >
-                            {isRecommended(choice.id) && (
-                                <span className="recommended-badge">⭐ NCFE Recommended</span>
-                            )}
-                            <span className="choice-text">{choice.text}</span>
-                            <div className="choice-impacts">
-                                {formatImpact(choice.wealth_impact, 'wealth')}
-                                {formatImpact(choice.happiness_impact, 'happiness')}
-                                {formatImpact(choice.credit_impact, 'credit')}
-                            </div>
-                        </button>
-                    ))}
+                    {card.choices.map((choice, index) => {
+                        const isUnaffordable = choice.wealth_impact < 0 && Math.abs(choice.wealth_impact) > session?.wealth;
+                        return (
+                            <button
+                                key={choice.id}
+                                className={`choice-btn ${isRecommended(choice.id) ? 'recommended' : ''} ${selectedChoice === choice.id ? 'selected' : ''} ${isUnaffordable ? 'unaffordable' : ''}`}
+                                onClick={() => handleChoiceClick(choice)}
+                                disabled={disabled}
+                                style={{ animationDelay: `${index * 0.1}s` }}
+                            >
+                                {isRecommended(choice.id) && (
+                                    <span className="recommended-badge">⭐ NCFE Recommended</span>
+                                )}
+                                {isUnaffordable && (
+                                    <span className="unaffordable-badge">⚠️ Requires loan</span>
+                                )}
+                                <span className="choice-text">{choice.text}</span>
+                                <div className="choice-impacts">
+                                    {formatImpact(choice.wealth_impact, 'wealth')}
+                                    {formatImpact(choice.happiness_impact, 'happiness')}
+                                    {formatImpact(choice.credit_impact, 'credit')}
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
+
+                {/* Skip Button */}
+                {onSkipCard && (
+                    <div className="skip-section">
+                        <button
+                            className="skip-btn"
+                            onClick={handleSkipCard}
+                            disabled={disabled || isSkipping}
+                            title="Skip this question (-5 happiness, -10 credit)"
+                        >
+                            {isSkipping ? (
+                                <span className="loading-spinner" style={{ width: 14, height: 14 }}></span>
+                            ) : (
+                                <>⏭️ Skip Question</>
+                            )}
+                        </button>
+                        <span className="skip-warning">Skipping costs: -5 happiness, -10 credit</span>
+                    </div>
+                )}
             </div>
         </div>
     );

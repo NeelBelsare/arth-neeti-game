@@ -1,37 +1,121 @@
 import random
 import uuid
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 
-from .models import GameSession, ScenarioCard, Choice, PlayerChoice
-from .serializers import (
-    GameSessionSerializer,
-    ScenarioCardSerializer,
-    SubmitChoiceSerializer
+from .models import (
+    GameSession, ScenarioCard, Choice, PlayerChoice,
+    PlayerProfile, GameHistory, MarketEvent, RecurringExpense
 )
+from .serializers import (
+    GameSessionSerializer, ScenarioCardSerializer, SubmitChoiceSerializer,
+    PlayerProfileSerializer, GameHistorySerializer, RecurringExpenseSerializer
+)
+from .advisor import get_advisor
+from .services import GameEngine
+
+
+# ==================== AUTHENTICATION ====================
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register(request):
+    """Register a new user and create their profile."""
+    username = request.data.get('username', '').strip()
+    password = request.data.get('password', '')
+    email = request.data.get('email', '').strip()
+
+    if not username or not password:
+        return Response(
+            {'error': 'Username and password are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if len(password) < 6:
+        return Response(
+            {'error': 'Password must be at least 6 characters.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if User.objects.filter(username=username).exists():
+        return Response(
+            {'error': 'Username already taken.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Create user (signal auto-creates PlayerProfile)
+    user = User.objects.create_user(username=username, password=password, email=email)
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return Response({
+        'message': 'Registration successful!',
+        'token': token.key,
+        'username': user.username
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    """Authenticate user and return token."""
+    username = request.data.get('username', '').strip()
+    password = request.data.get('password', '')
+
+    if not username or not password:
+        return Response(
+            {'error': 'Username and password are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = authenticate(username=username, password=password)
+
+    if user:
+        token, _ = Token.objects.get_or_create(user=user)
+        profile = PlayerProfileSerializer(user.profile).data if hasattr(user, 'profile') else {}
+        return Response({
+            'message': 'Login successful!',
+            'token': token.key,
+            'username': user.username,
+            'profile': profile
+        })
+
+    return Response(
+        {'error': 'Invalid username or password.'},
+        status=status.HTTP_401_UNAUTHORIZED
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_profile(request):
+    """Get current user's profile and game history."""
+    user = request.user
+    
+    # Ensure profile exists
+    profile, _ = PlayerProfile.objects.get_or_create(user=user)
+    
+    # Get game history
+    history = GameHistory.objects.filter(user=user)[:10]
+    
+    return Response({
+        'profile': PlayerProfileSerializer(profile).data,
+        'game_history': GameHistorySerializer(history, many=True).data
+    })
+
+
+# ==================== GAME ENDPOINTS ====================
+
 
 
 @api_view(['POST'])
 def start_game(request):
-    """
-    Start a new game session.
-    For demo purposes, creates/uses a demo user if not authenticated.
+    """Start a new game session using the Game Engine."""
     
-    SECURITY NOTE: 
-    This implementation uses a guest user pattern where session_id is the primary token.
-    In a production environment, this should be replaced with signed JWTs stored in HTTP-only cookies
-    to prevent session hijacking (guessing session IDs).
-    """
-    # Game Configuration Constants
-    GAME_CONFIG = {
-        'STARTING_WEALTH': 25000,
-        'HAPPINESS_START': 100,
-        'CREDIT_SCORE_START': 700,
-        'START_MONTH': 1
-    }
-
     # Get or create a user for the session
     if request.user.is_authenticated:
         user = request.user
@@ -43,14 +127,8 @@ def start_game(request):
             email=f"{guest_username}@guest.arthneeti.com"
         )
 
-    # Create a new game session
-    session = GameSession.objects.create(
-        user=user,
-        wealth=GAME_CONFIG['STARTING_WEALTH'],
-        happiness=GAME_CONFIG['HAPPINESS_START'],
-        credit_score=GAME_CONFIG['CREDIT_SCORE_START'],
-        current_month=GAME_CONFIG['START_MONTH']
-    )
+    # Use Engine to start session
+    session = GameEngine.start_new_session(user)
 
     serializer = GameSessionSerializer(session)
     return Response({
@@ -110,7 +188,7 @@ def get_card(request, session_id):
 @api_view(['POST'])
 def submit_choice(request):
     """
-    Process a player's choice and update game state.
+    Process a player's choice via the GameEngine.
     """
     serializer = SubmitChoiceSerializer(data=request.data)
     if not serializer.is_valid():
@@ -136,78 +214,19 @@ def submit_choice(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Apply choice impacts
-    session.wealth += choice.wealth_impact
-    session.happiness += choice.happiness_impact
-    session.credit_score += choice.credit_impact
-    session.financial_literacy += choice.literacy_impact
-
-    # Game Rules Configuration
-    GAME_CONFIG = {
-        'CARDS_PER_MONTH': 3,
-        'GAME_DURATION_MONTHS': 12,
-        'MIN_HAPPINESS': 0,
-        'MAX_HAPPINESS': 100,
-        'MIN_CREDIT': 300,
-        'MAX_CREDIT': 900,
-        'MONTHLY_SALARY': 25000
-    }
-
-    # Clamp values
-    session.happiness = max(GAME_CONFIG['MIN_HAPPINESS'], min(GAME_CONFIG['MAX_HAPPINESS'], session.happiness))
-    session.credit_score = max(GAME_CONFIG['MIN_CREDIT'], min(GAME_CONFIG['MAX_CREDIT'], session.credit_score))
-
-    # Log the choice
-    PlayerChoice.objects.create(
-        session=session,
-        card=choice.card,
-        choice=choice
-    )
-
-    # Advance month every X choices
-    choices_count = PlayerChoice.objects.filter(session=session).count()
-    new_month = (choices_count // GAME_CONFIG['CARDS_PER_MONTH']) + 1
-    feedback_message = choice.feedback or ""
-    if new_month > session.current_month:
-        months_passed = new_month - session.current_month
-        salary_credit = GAME_CONFIG['MONTHLY_SALARY'] * months_passed
-        session.wealth += salary_credit
-        prefix = f"{feedback_message} " if feedback_message else ""
-        feedback_message = f"{prefix}(Month {new_month} started! Salary ₹{salary_credit} credited.)"
-
-    session.current_month = new_month
-
-    # Check win/loss conditions
-    game_over = False
-    game_over_reason = None
-
-    if session.wealth <= 0:
-        game_over = True
-        game_over_reason = 'BANKRUPTCY'
-        session.is_active = False
-    elif session.happiness <= GAME_CONFIG['MIN_HAPPINESS']:
-        game_over = True
-        game_over_reason = 'BURNOUT'
-        session.is_active = False
-
-    # Check if game duration completed
-    if session.current_month > GAME_CONFIG['GAME_DURATION_MONTHS']:
-        game_over = True
-        game_over_reason = 'COMPLETED'
-        session.is_active = False
-
-    session.save()
-
+    # DELEGATE TO ENGINE
+    result = GameEngine.process_choice(session, choice.card, choice)
+    
     response_data = {
-        'feedback': feedback_message,
+        'feedback': result['feedback'],
         'was_recommended': choice.is_recommended,
-        'session': GameSessionSerializer(session).data,
-        'game_over': game_over,
+        'session': GameSessionSerializer(result['session']).data,
+        'game_over': result['game_over'],
     }
 
-    if game_over:
-        response_data['game_over_reason'] = game_over_reason
-        response_data['final_persona'] = _calculate_persona(session)
+    if result['game_over']:
+        response_data['game_over_reason'] = result['game_over_reason']
+        response_data['final_persona'] = result['final_persona']
 
     return Response(response_data)
 
@@ -266,35 +285,59 @@ def take_loan(request):
     })
 
 
-def _calculate_persona(session):
-    """Calculate the player's financial persona based on their performance."""
-    score = session.financial_literacy
+@api_view(['POST'])
+def skip_card(request):
+    """
+    Skip the current scenario card.
+    Skipping has a small penalty: -5 happiness and -10 credit score.
+    The card is recorded as skipped so it won't appear again this session.
+    """
+    session_id = request.data.get('session_id')
+    card_id = request.data.get('card_id')
 
-    if score >= 80:
-        return {
-            'title': 'The Warren Buffett',
-            'description': 'You made smart financial decisions consistently. Your future is secure!'
-        }
-    elif score >= 60:
-        return {
-            'title': 'The Cautious Saver',
-            'description': 'You played it safe. Sometimes too safe, but your finances are stable.'
-        }
-    elif score >= 40:
-        return {
-            'title': 'The Balanced Spender',
-            'description': 'You found a balance between enjoying life and saving. Well done!'
-        }
-    elif score >= 20:
-        return {
-            'title': 'The YOLO Enthusiast',
-            'description': 'You lived life to the fullest! Maybe a bit too much...'
-        }
-    else:
-        return {
-            'title': 'The FOMO Victim',
-            'description': 'Social pressure got the best of you. Time to learn some financial discipline!'
-        }
+    if not session_id or not card_id:
+        return Response(
+            {'error': 'session_id and card_id are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response(
+            {'error': 'Session not found or inactive.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        card = ScenarioCard.objects.get(id=card_id)
+    except ScenarioCard.DoesNotExist:
+        return Response(
+            {'error': 'Card not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Apply skip penalty
+    session.happiness = max(0, session.happiness - 5)
+    session.credit_score = max(300, session.credit_score - 10)
+
+    # Record as "skipped" choice so card won't appear again
+    PlayerChoice.objects.create(
+        session=session,
+        card=card,
+        choice=None  # Null choice indicates skip
+    )
+
+    session.save()
+
+    return Response({
+        'session': GameSessionSerializer(session).data,
+        'message': 'Question skipped! (-5 happiness, -10 credit score)',
+        'skipped': True
+    })
+
+
+
 
 
 @api_view(['GET'])
@@ -368,4 +411,290 @@ def use_lifeline(request):
         'hints': hints,
         'lifelines_remaining': session.lifelines,
         'session': GameSessionSerializer(session).data
+    })
+
+
+@api_view(['POST'])
+def get_ai_advice(request):
+    """
+    Get AI-powered financial advice for the current scenario.
+    Uses Gemini API if available, otherwise returns curated fallback advice.
+    """
+    session_id = request.data.get('session_id')
+    card_id = request.data.get('card_id')
+
+    if not session_id or not card_id:
+        return Response(
+            {'error': 'session_id and card_id are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response(
+            {'error': 'Session not found or inactive.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        card = ScenarioCard.objects.get(id=card_id)
+    except ScenarioCard.DoesNotExist:
+        return Response(
+            {'error': 'Card not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Get choices for the card
+    choices = [
+        {
+            'text': c.text,
+            'wealth_impact': c.wealth_impact,
+            'happiness_impact': c.happiness_impact,
+        }
+        for c in card.choices.all()
+    ]
+
+    # Get advice from the advisor
+    advisor = get_advisor()
+    result = advisor.get_advice(
+        scenario_title=card.title,
+        scenario_description=card.description,
+        choices=choices,
+        player_wealth=session.wealth,
+        player_happiness=session.happiness
+    )
+
+    return Response({
+        'advice': result['advice'],
+        'source': result['source'],
+    })
+
+
+@api_view(['GET'])
+def get_leaderboard(request):
+    """
+    Get top 10 players by final score.
+    """
+    # Get completed sessions with highest scores
+    top_sessions = GameSession.objects.filter(
+        is_active=False
+    ).order_by('-financial_literacy', '-wealth')[:10]
+
+    leaderboard = []
+    for i, session in enumerate(top_sessions, 1):
+        # Calculate a composite score
+        score = (
+            session.financial_literacy * 10 +
+            max(0, session.wealth) // 1000 +
+            session.credit_score // 10
+        )
+        leaderboard.append({
+            'rank': i,
+            'player_name': session.user.username.replace('Guest_', 'Player '),
+            'score': score,
+            'wealth': session.wealth,
+            'credit_score': session.credit_score,
+            'persona': _calculate_persona(session)['title'],
+        })
+
+    return Response({
+        'leaderboard': leaderboard
+    })
+
+
+@api_view(['POST'])
+def invest_in_stocks(request):
+    """
+    Invest a portion of wealth in stocks.
+    """
+    session_id = request.data.get('session_id')
+    amount = request.data.get('amount', 0)
+
+    if not session_id:
+        return Response(
+            {'error': 'session_id is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        amount = int(amount)
+    except (ValueError, TypeError):
+        return Response(
+            {'error': 'Amount must be a valid number.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response(
+            {'error': 'Session not found or inactive.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if amount <= 0:
+        return Response(
+            {'error': 'Amount must be positive.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if amount > session.wealth:
+        return Response(
+            {'error': 'Insufficient funds.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Legacy: Transfer from wealth to general investment pool
+    session.wealth -= amount
+    session.save()
+
+    return Response({
+        'message': f'Invested ₹{amount:,} in stocks!',
+        'session': GameSessionSerializer(session).data,
+    })
+
+
+# ==================== STOCK MARKET 2.0 ====================
+
+STOCK_SECTORS = ['gold', 'tech', 'real_estate']
+
+
+
+
+
+@api_view(['POST'])
+def buy_stock(request):
+    """Buy units of a stock sector."""
+    session_id = request.data.get('session_id')
+    sector = request.data.get('sector', '').lower()
+    amount = request.data.get('amount', 0)
+
+    if not session_id:
+        return Response({'error': 'session_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if sector not in STOCK_SECTORS:
+        return Response(
+            {'error': f'Invalid sector. Choose from: {", ".join(STOCK_SECTORS)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        amount = int(amount)
+        if amount <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return Response({'error': 'Amount must be a positive number.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if amount > session.wealth:
+        return Response({'error': 'Insufficient funds.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Calculate units at current price
+    price = session.market_prices.get(sector, 100)
+    units = amount / price
+    
+    # Update portfolio and wealth
+    session.wealth -= amount
+    current_units = session.portfolio.get(sector, 0)
+    session.portfolio[sector] = current_units + units
+    session.save()
+
+    return Response({
+        'message': f'Bought {units:.2f} units of {sector.upper()} at ₹{price}/unit',
+        'session': GameSessionSerializer(session).data,
+        'purchase': {
+            'sector': sector,
+            'units': units,
+            'price_per_unit': price,
+            'total_spent': amount
+        }
+    })
+
+
+@api_view(['POST'])
+def sell_stock(request):
+    """Sell units of a stock sector."""
+    session_id = request.data.get('session_id')
+    sector = request.data.get('sector', '').lower()
+    units = request.data.get('units', 0)
+
+    if not session_id:
+        return Response({'error': 'session_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if sector not in STOCK_SECTORS:
+        return Response(
+            {'error': f'Invalid sector. Choose from: {", ".join(STOCK_SECTORS)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        units = float(units)
+        if units <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return Response({'error': 'Units must be a positive number.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    current_units = session.portfolio.get(sector, 0)
+    if units > current_units:
+        return Response({'error': f'Insufficient {sector} units. You have {current_units:.2f}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Calculate sale value at current price
+    price = session.market_prices.get(sector, 100)
+    sale_value = int(units * price)
+    
+    # Update portfolio and wealth
+    session.wealth += sale_value
+    session.portfolio[sector] = current_units - units
+    session.save()
+
+    return Response({
+        'message': f'Sold {units:.2f} units of {sector.upper()} for ₹{sale_value:,}',
+        'session': GameSessionSerializer(session).data,
+        'sale': {
+            'sector': sector,
+            'units': units,
+            'price_per_unit': price,
+            'total_received': sale_value
+        }
+    })
+
+
+@api_view(['GET'])
+def market_status(request, session_id):
+    """Get current market prices and portfolio value."""
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Calculate portfolio value
+    portfolio_value = 0
+    holdings = []
+    for sector in STOCK_SECTORS:
+        units = session.portfolio.get(sector, 0)
+        price = session.market_prices.get(sector, 100)
+        value = int(units * price)
+        portfolio_value += value
+        holdings.append({
+            'sector': sector,
+            'units': round(units, 2),
+            'current_price': price,
+            'value': value
+        })
+
+    return Response({
+        'market_prices': session.market_prices,
+        'portfolio': holdings,
+        'total_portfolio_value': portfolio_value,
+        'net_worth': session.wealth + portfolio_value
     })

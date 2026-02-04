@@ -1,7 +1,31 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
+# --- 1. PLAYER PROFILE SYSTEM ---
+class PlayerProfile(models.Model):
+    """Persistent player stats across all games."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    total_games = models.IntegerField(default=0)
+    highest_wealth = models.IntegerField(default=0)
+    highest_score = models.IntegerField(default=0)
+    badges = models.JSONField(default=list)  # e.g., ["Savings Master", "Stock Guru"]
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Profile"
+
+
+# Auto-create profile when user is created
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        PlayerProfile.objects.create(user=instance)
+
+
+# --- 2. GAME SESSION (EVOLVED) ---
 class GameSession(models.Model):
     """Tracks the user's current run through the game."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='game_sessions')
@@ -12,8 +36,26 @@ class GameSession(models.Model):
     financial_literacy = models.IntegerField(default=0)  # Hidden Score for persona
     lifelines = models.IntegerField(default=3)      # "Ask NCFE" hints available
     is_active = models.BooleanField(default=True)
+    
+    # --- NEW: Stock Market 2.0 ---
+    # Market prices for each sector (starts at 100)
+    market_prices = models.JSONField(default=dict)  # {"gold": 100, "tech": 100, "real_estate": 100}
+    # Player's portfolio (units held per sector)
+    portfolio = models.JSONField(default=dict)  # {"gold": 0, "tech": 0, "real_estate": 0}
+    
+    # --- NEW: Recurring Expenses ---
+    recurring_expenses = models.IntegerField(default=0)  # Monthly drain
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Initialize market prices if empty
+        if not self.market_prices:
+            self.market_prices = {"gold": 100, "tech": 100, "real_estate": 100}
+        if not self.portfolio:
+            self.portfolio = {"gold": 0, "tech": 0, "real_estate": 0}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Session {self.id} - User: {self.user.username} - Month: {self.current_month}"
@@ -22,6 +64,59 @@ class GameSession(models.Model):
         ordering = ['-created_at']
 
 
+# --- 3. GAME HISTORY (for profile dashboard) ---
+class GameHistory(models.Model):
+    """Summary of completed games for the profile dashboard."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='game_history')
+    final_wealth = models.IntegerField()
+    final_happiness = models.IntegerField()
+    final_credit_score = models.IntegerField()
+    financial_literacy_score = models.IntegerField()
+    persona = models.CharField(max_length=100)
+    end_reason = models.CharField(max_length=20)  # COMPLETED, BANKRUPTCY, BURNOUT
+    months_played = models.IntegerField()
+    played_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.persona} ({self.played_at.date()})"
+
+    class Meta:
+        ordering = ['-played_at']
+
+
+# --- 4. MARKET EVENTS (News System) ---
+class MarketEvent(models.Model):
+    """News events that affect stock market sectors."""
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    
+    # Impact on next month's prices: {"tech": 1.2, "gold": 0.9} means Tech +20%, Gold -10%
+    sector_impacts = models.JSONField()
+    
+    # When this news should appear (0 = random)
+    trigger_month = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.title
+
+
+# --- 5. RECURRING EXPENSES ---
+class RecurringExpense(models.Model):
+    """Tracks subscriptions and recurring costs for a session."""
+    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='expenses')
+    name = models.CharField(max_length=100)  # e.g., "Netflix Subscription"
+    amount = models.IntegerField()  # Monthly cost
+    started_month = models.IntegerField()  # When expense started
+    is_cancelled = models.BooleanField(default=False)
+    cancelled_month = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        status = "Active" if not self.is_cancelled else "Cancelled"
+        return f"{self.name} (₹{self.amount}/mo) - {status}"
+
+
+# --- 6. SCENARIO CARDS ---
 class ScenarioCard(models.Model):
     """The events/scenarios presented to the player."""
     CATEGORY_CHOICES = [
@@ -31,6 +126,8 @@ class ScenarioCard(models.Model):
         ('INVESTMENT', 'Investment'),
         ('SOCIAL', 'Social Pressure'),
         ('TRAP', 'Hidden Trap'),
+        ('NEWS', 'Market News'),  # NEW: For stock market events
+        ('QUIZ', 'Pop Quiz'),     # NEW: For recall mechanics
     ]
 
     title = models.CharField(max_length=200)
@@ -43,6 +140,13 @@ class ScenarioCard(models.Model):
     difficulty = models.IntegerField(default=1)  # 1 (Easy) to 5 (Hard)
     min_month = models.IntegerField(default=1)   # Earliest month this card can appear
     is_active = models.BooleanField(default=True)
+    
+    # NEW: For NEWS cards - link to MarketEvent
+    market_event = models.ForeignKey(MarketEvent, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # NEW: For choices that add recurring expenses
+    adds_recurring_expense = models.IntegerField(default=0)  # Amount (0 = no expense)
+    expense_name = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return f"[{self.category}] {self.title}"
@@ -51,6 +155,7 @@ class ScenarioCard(models.Model):
         ordering = ['category', 'difficulty']
 
 
+# --- 7. CHOICES ---
 class Choice(models.Model):
     """The options available for each ScenarioCard."""
     card = models.ForeignKey(ScenarioCard, on_delete=models.CASCADE, related_name='choices')
@@ -65,16 +170,24 @@ class Choice(models.Model):
     # Educational Feedback (shown after choice)
     feedback = models.TextField(blank=True)
     is_recommended = models.BooleanField(default=False)  # For analytics: was this the "right" choice?
+    
+    # NEW: For choices that add recurring expenses
+    adds_recurring_expense = models.IntegerField(default=0)
+    expense_name = models.CharField(max_length=100, blank=True)
+    
+    # NEW: For choices that cancel recurring expenses
+    cancels_expense_name = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return f"{self.card.title} -> {self.text[:30]}"
 
 
+# --- 8. PLAYER CHOICE LOG ---
 class PlayerChoice(models.Model):
-    """Logs all choices made by a player in a session (for analytics)."""
+    """Logs all choices made by a player in a session (for analytics & recall)."""
     session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='player_choices')
     card = models.ForeignKey(ScenarioCard, on_delete=models.CASCADE)
-    choice = models.ForeignKey(Choice, on_delete=models.CASCADE)
+    choice = models.ForeignKey(Choice, on_delete=models.CASCADE, null=True, blank=True)  # null = skipped
     chosen_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
