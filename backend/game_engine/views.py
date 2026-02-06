@@ -1,12 +1,11 @@
 import random
 import uuid
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
+from django.core.exceptions import PermissionDenied
 
 from .models import (
     GameSession, ScenarioCard, Choice, PlayerChoice,
@@ -18,79 +17,19 @@ from .serializers import (
 )
 from .advisor import get_advisor
 from .services import GameEngine
+from .firebase_auth import FirebaseAuthentication
 
 
 # ==================== AUTHENTICATION ====================
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register(request):
-    """Register a new user and create their profile."""
-    username = request.data.get('username', '').strip()
-    password = request.data.get('password', '')
-    email = request.data.get('email', '').strip()
-
-    if not username or not password:
-        return Response(
-            {'error': 'Username and password are required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if len(password) < 6:
-        return Response(
-            {'error': 'Password must be at least 6 characters.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if User.objects.filter(username=username).exists():
-        return Response(
-            {'error': 'Username already taken.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Create user (signal auto-creates PlayerProfile)
-    user = User.objects.create_user(username=username, password=password, email=email)
-    token, _ = Token.objects.get_or_create(user=user)
-
-    return Response({
-        'message': 'Registration successful!',
-        'token': token.key,
-        'username': user.username
-    }, status=status.HTTP_201_CREATED)
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def login_view(request):
-    """Authenticate user and return token."""
-    username = request.data.get('username', '').strip()
-    password = request.data.get('password', '')
-
-    if not username or not password:
-        return Response(
-            {'error': 'Username and password are required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    user = authenticate(username=username, password=password)
-
-    if user:
-        token, _ = Token.objects.get_or_create(user=user)
-        profile = PlayerProfileSerializer(user.profile).data if hasattr(user, 'profile') else {}
-        return Response({
-            'message': 'Login successful!',
-            'token': token.key,
-            'username': user.username,
-            'profile': profile
-        })
-
-    return Response(
-        {'error': 'Invalid username or password.'},
-        status=status.HTTP_401_UNAUTHORIZED
-    )
+# NOTE: register() and login_view() endpoints removed
+# Authentication is now handled client-side by Firebase SDK
+# Users are automatically created in Django when they authenticate with Firebase
+# (see FirebaseAuthMiddleware in firebase_auth.py)
 
 
 @api_view(['GET'])
+@authentication_classes([FirebaseAuthentication])
 @permission_classes([IsAuthenticated])
 def get_profile(request):
     """Get current user's profile and game history."""
@@ -113,19 +52,12 @@ def get_profile(request):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def start_game(request):
     """Start a new game session using the Game Engine."""
-    
-    # Get or create a user for the session
-    if request.user.is_authenticated:
-        user = request.user
-    else:
-        # Generate unique guest username to avoid session collision
-        guest_username = f"Guest_{uuid.uuid4().hex[:8]}"
-        user = User.objects.create(
-            username=guest_username,
-            email=f"{guest_username}@guest.arthneeti.com"
-        )
+    # User is guaranteed to be authenticated by Firebase
+    user = request.user
 
     # Use Engine to start session
     session = GameEngine.start_new_session(user)
@@ -174,6 +106,8 @@ def get_card(request, session_id):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def submit_choice(request):
     """
     Process a player's choice via the GameEngine.
@@ -220,6 +154,8 @@ def submit_choice(request):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def take_loan(request):
     """
     Emergency loan endpoint.
@@ -252,6 +188,8 @@ def take_loan(request):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def skip_card(request):
     """
     Skip the current scenario card.
@@ -302,6 +240,8 @@ def get_session(request, session_id):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def use_lifeline(request):
     """
     Use a lifeline to reveal the recommended choice for a card.
@@ -353,6 +293,8 @@ def use_lifeline(request):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def get_ai_advice(request):
     """
     Get AI-powered financial advice for the current scenario.
@@ -455,6 +397,8 @@ def get_leaderboard(request):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def buy_stock(request):
     """Buy units of a stock sector."""
     session_id = request.data.get('session_id')
@@ -488,6 +432,8 @@ def buy_stock(request):
 
 
 @api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def sell_stock(request):
     """Sell units of a stock sector."""
     session_id = request.data.get('session_id')

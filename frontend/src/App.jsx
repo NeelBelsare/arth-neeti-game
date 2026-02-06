@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api } from './api';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { logout } from './services/authService';
 import { SessionProvider, useSession } from './contexts/SessionContext';
 import GameStats from './components/GameStats';
 import GameHeader from './components/GameHeader';
@@ -28,8 +30,8 @@ const SESSION_STORAGE_KEY = 'arthneeti_session_id';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-    const token = localStorage.getItem('auth_token');
-    return token ? children : <Navigate to="/auth/login" replace />;
+    const { currentUser } = useAuth();
+    return currentUser ? children : <Navigate to="/auth/login" replace />;
 };
 
 // Game Component (handles game logic)
@@ -325,40 +327,36 @@ function GameComponent() {
 
 // Main App Component
 function AppRoutes() {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const { currentUser } = useAuth();
     const { session, startGame, updateSession, clearSession } = useSession();
     const navigate = useNavigate();
 
+    // Remove legacy auth checks
     useEffect(() => {
-        const token = localStorage.getItem('auth_token');
-        setIsAuthenticated(!!token);
-        setIsLoading(false);
-    }, []);
+        // Optional: Any auth-dependent side effects
+    }, [currentUser]);
 
     const handleStartGame = useCallback(async () => {
-        setIsLoading(true);
         try {
-            const newSession = await startGame();
+            await startGame();
             navigate('/game');
         } catch (err) {
             console.error('Failed to start game:', err);
-        } finally {
-            setIsLoading(false);
         }
     }, [navigate, startGame]);
 
-    const handleLoginSuccess = useCallback((data) => {
-        setIsAuthenticated(true);
+    const handleLoginSuccess = useCallback(() => {
         navigate('/');
     }, [navigate]);
 
-    const handleLogout = useCallback(() => {
-        clearSession();
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('username');
-        setIsAuthenticated(false);
-        navigate('/auth/login', { replace: true });
+    const handleLogout = useCallback(async () => {
+        try {
+            await logout();
+            clearSession();
+            navigate('/auth/login', { replace: true });
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
     }, [navigate, clearSession]);
 
     const handleBuyStock = useCallback(async (sector, amount) => {
@@ -396,14 +394,8 @@ function AppRoutes() {
         }
     }, [session, updateSession]);
 
-    if (isLoading) {
-        return (
-            <div className="loading-screen">
-                <div className="loading-spinner"></div>
-                <p>Loading...</p>
-            </div>
-        );
-    }
+    // Loading state is handled by AuthProvider wrapper
+
 
     return (
         <div className="app">
@@ -417,7 +409,7 @@ function AppRoutes() {
                 } />
                 <Route path="/" element={
                     <ProtectedRoute>
-                        <HomePage onStartGame={handleStartGame} isLoading={isLoading} username={localStorage.getItem('username')} />
+                        <HomePage onStartGame={handleStartGame} username={currentUser?.email?.split('@')[0] || 'User'} />
                     </ProtectedRoute>
                 } />
                 <Route path="/game" element={
@@ -449,10 +441,12 @@ function AppRoutes() {
 // Router Wrapper
 function App() {
     return (
-        <Router>
-            <SessionProvider>
-                <AppRoutes />
-            </SessionProvider>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AuthProvider>
+                <SessionProvider>
+                    <AppRoutes />
+                </SessionProvider>
+            </AuthProvider>
         </Router>
     );
 }

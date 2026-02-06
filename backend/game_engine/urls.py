@@ -3,8 +3,7 @@ from . import views
 
 urlpatterns = [
     # Authentication
-    path('register/', views.register, name='register'),
-    path('login/', views.login_view, name='login'),
+    # NOTE: register/ and login/ routes removed - handled by Firebase client-side
     path('profile/', views.get_profile, name='profile'),
     
     # Game

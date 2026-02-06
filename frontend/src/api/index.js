@@ -1,37 +1,30 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('auth_token');
-    return token ? { 'Authorization': `Token ${token}` } : {};
+// Import Firebase auth
+import { auth } from '../firebase/config';
+
+const getAuthHeaders = async () => {
+    const user = auth.currentUser;
+    if (user) {
+        try {
+            const token = await user.getIdToken();
+            return { 'Authorization': `Bearer ${token}` };
+        } catch (error) {
+            console.error('Failed to get Firebase token:', error);
+            return {};
+        }
+    }
+    return {};
 };
 
 export const api = {
     // --- AUTHENTICATION ---
-    async register(username, password, email) {
-        const response = await fetch(`${API_BASE_URL}/register/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, email }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Registration failed');
-        return data;
-    },
-
-    async login(username, password) {
-        const response = await fetch(`${API_BASE_URL}/login/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Login failed');
-        return data;
-    },
+    // NOTE: register() and login() methods removed
+    // Authentication is now handled by Firebase SDK (see services/authService.js)
 
     async getProfile() {
         const response = await fetch(`${API_BASE_URL}/profile/`, {
-            headers: { ...getAuthHeaders() },
+            headers: { ...(await getAuthHeaders()) },
         });
         if (!response.ok) throw new Error('Failed to fetch profile');
         return response.json();
@@ -39,12 +32,12 @@ export const api = {
 
     // --- GAME SESSION ---
     async startGame() {
-        // Pass auth token if available to link session to user
+        // Pass Firebase auth token
         const response = await fetch(`${API_BASE_URL}/start-game/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...getAuthHeaders(),
+                ...(await getAuthHeaders()),
             },
         });
         if (!response.ok) throw new Error('Failed to start game');
@@ -53,7 +46,7 @@ export const api = {
 
     async getCard(sessionId) {
         const response = await fetch(`${API_BASE_URL}/get-card/${sessionId}/`, {
-            headers: { ...getAuthHeaders() },
+            headers: { ...(await getAuthHeaders()) },
         });
         if (!response.ok) throw new Error('Failed to get card');
         return response.json();
@@ -64,7 +57,7 @@ export const api = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...getAuthHeaders(),
+                ...(await getAuthHeaders()),
             },
             body: JSON.stringify({
                 session_id: sessionId,
@@ -78,7 +71,7 @@ export const api = {
 
     async getSession(sessionId) {
         const response = await fetch(`${API_BASE_URL}/session/${sessionId}/`, {
-            headers: { ...getAuthHeaders() },
+            headers: { ...(await getAuthHeaders()) },
         });
         if (!response.ok) throw new Error('Failed to get session');
         return response.json();
@@ -88,7 +81,7 @@ export const api = {
     async useLifeline(sessionId, cardId) {
         const response = await fetch(`${API_BASE_URL}/use-lifeline/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ session_id: sessionId, card_id: cardId }),
         });
         if (!response.ok) throw new Error('Failed to use lifeline');
@@ -98,7 +91,7 @@ export const api = {
     async takeLoan(sessionId, loanType) {
         const response = await fetch(`${API_BASE_URL}/take-loan/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ session_id: sessionId, loan_type: loanType }),
         });
         if (!response.ok) throw new Error('Failed to take loan');
@@ -108,7 +101,7 @@ export const api = {
     async skipCard(sessionId, cardId) {
         const response = await fetch(`${API_BASE_URL}/skip-card/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ session_id: sessionId, card_id: cardId }),
         });
         if (!response.ok) throw new Error('Failed to skip card');
@@ -118,7 +111,7 @@ export const api = {
     async getAIAdvice(sessionId, cardId) {
         const response = await fetch(`${API_BASE_URL}/ai-advice/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ session_id: sessionId, card_id: cardId }),
         });
         if (!response.ok) throw new Error('Failed to get AI advice');
@@ -134,7 +127,7 @@ export const api = {
     // --- STOCK MARKET 2.0 ---
     async getMarketStatus(sessionId) {
         const response = await fetch(`${API_BASE_URL}/market-status/${sessionId}/`, {
-            headers: { ...getAuthHeaders() },
+            headers: { ...(await getAuthHeaders()) },
         });
         if (!response.ok) throw new Error('Failed to get market status');
         return response.json();
@@ -143,7 +136,7 @@ export const api = {
     async buyStock(sessionId, sector, amount) {
         const response = await fetch(`${API_BASE_URL}/buy-stock/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ session_id: sessionId, sector, amount }),
         });
         const data = await response.json();
@@ -154,7 +147,7 @@ export const api = {
     async sellStock(sessionId, sector, units) {
         const response = await fetch(`${API_BASE_URL}/sell-stock/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ session_id: sessionId, sector, units }),
         });
         const data = await response.json();

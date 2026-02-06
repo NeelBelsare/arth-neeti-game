@@ -26,10 +26,13 @@ media/
 node_modules/
 dist/
 .npm
+npm-debug.log
+yarn-error.log
 
 # Build
 build/
 *.egg-info/
+.firebase/
 
 # Environment files
 .env
@@ -47,3 +50,8 @@ htmlcov/
 
 # Docker
 *.log
+
+# Manual Backups
+* - Copy.*
+*.bak
+*.old

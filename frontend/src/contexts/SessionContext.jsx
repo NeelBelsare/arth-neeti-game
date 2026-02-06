@@ -1,66 +1,92 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+/**
+ * Session Context
+ * Manages game session state throughout the app
+ */
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { api } from '../api';
 
-const SessionContext = createContext(null);
+const SessionContext = createContext({});
+
+const SESSION_STORAGE_KEY = 'arthneeti_session_id';
 
 export const useSession = () => {
     const context = useContext(SessionContext);
     if (!context) {
-        throw new Error('useSession must be used within SessionProvider');
+        throw new Error('useSession must be used within a SessionProvider');
     }
     return context;
 };
 
 export const SessionProvider = ({ children }) => {
     const [session, setSession] = useState(null);
-    const SESSION_STORAGE_KEY = 'arthneeti_session_id';
-
-    useEffect(() => {
-        const loadSession = async () => {
-            const savedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
-            if (savedSessionId) {
-                try {
-                    const sessionData = await api.getSession(savedSessionId);
-                    if (sessionData.session && sessionData.session.is_active) {
-                        setSession(sessionData.session);
-                    } else {
-                        localStorage.removeItem(SESSION_STORAGE_KEY);
-                    }
-                } catch (err) {
-                    console.log('Could not load session:', err);
-                    localStorage.removeItem(SESSION_STORAGE_KEY);
-                }
-            }
-        };
-        loadSession();
-    }, []);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     const startGame = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
+            console.log('🎮 Starting new game session...');
             const data = await api.startGame();
+            console.log('✅ Game session started:', data.session.id);
+            
             setSession(data.session);
             localStorage.setItem(SESSION_STORAGE_KEY, data.session.id);
+            
             return data.session;
         } catch (err) {
-            console.error('Failed to start game:', err);
+            console.error('❌ Failed to start game:', err);
+            setError(err.message);
             throw err;
+        } finally {
+            setLoading(false);
         }
     }, []);
 
     const updateSession = useCallback((newSession) => {
+        console.log('🔄 Updating session:', newSession?.id);
         setSession(newSession);
-        if (newSession && newSession.id) {
+        if (newSession?.id) {
             localStorage.setItem(SESSION_STORAGE_KEY, newSession.id);
         }
     }, []);
 
     const clearSession = useCallback(() => {
+        console.log('🧹 Clearing session');
         setSession(null);
+        setError(null);
         localStorage.removeItem(SESSION_STORAGE_KEY);
     }, []);
 
+    const loadSession = useCallback(async (sessionId) => {
+        setLoading(true);
+        setError(null);
+        try {
+            console.log('📥 Loading session:', sessionId);
+            const data = await api.getSession(sessionId);
+            setSession(data.session);
+            return data.session;
+        } catch (err) {
+            console.error('❌ Failed to load session:', err);
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const value = {
+        session,
+        loading,
+        error,
+        startGame,
+        updateSession,
+        clearSession,
+        loadSession,
+    };
+
     return (
-        <SessionContext.Provider value={{ session, startGame, updateSession, clearSession }}>
+        <SessionContext.Provider value={value}>
             {children}
         </SessionContext.Provider>
     );
