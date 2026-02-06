@@ -60,7 +60,11 @@ class PlayerProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PlayerProfile
-        fields = ['username', 'total_games', 'highest_wealth', 'highest_score', 'badges']
+        fields = [
+            'username', 'total_games', 'highest_wealth', 'highest_score',
+            'highest_credit_score', 'highest_happiness', 'highest_stock_profit',
+            'badges'
+        ]
 
 
 class GameHistorySerializer(serializers.ModelSerializer):

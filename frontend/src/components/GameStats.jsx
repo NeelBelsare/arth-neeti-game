@@ -1,239 +1,155 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { playSound } from '../utils/sound';
+import './GameStats.css';
 
-const GameStats = ({ session }) => {
+const formatMoney = (amount) => {
+    const sym = '₹';
+    if (amount >= 100000) return `${sym}${(amount / 100000).toFixed(1)}L`;
+    return `${sym}${Number(amount).toLocaleString('en-IN')}`;
+};
+
+function GameStats({ session }) {
     const [prevSession, setPrevSession] = useState(null);
     const [flashState, setFlashState] = useState({});
-    const [animatedValues, setAnimatedValues] = useState({
-        wealth: 0,
-        happiness: 0,
-        credit_score: 700
-    });
+    const [animatedWealth, setAnimatedWealth] = useState(0);
+    const [animatedNetWorth, setAnimatedNetWorth] = useState(0);
+    const rafRef = useRef(null);
 
-    // Animate values on change
+    const netWorth = (() => {
+        if (!session) return 0;
+        let total = session.wealth || 0;
+        const portfolio = session.portfolio || {};
+        const prices = session.market_prices || {};
+        Object.keys(portfolio).forEach((s) => {
+            total += (portfolio[s] || 0) * (prices[s] || 0);
+        });
+        return Math.round(total);
+    })();
+
     useEffect(() => {
         if (!session) return;
 
-        // Animate to new values
         const duration = 500;
         const startTime = Date.now();
-        const startValues = { ...animatedValues };
-        const endValues = {
-            wealth: session.wealth,
-            happiness: session.happiness,
-            credit_score: session.credit_score
-        };
+        const startWealth = animatedWealth;
+        const startNet = animatedNetWorth;
+        const endWealth = session.wealth || 0;
+        const endNet = netWorth;
 
         const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
             const easeOut = 1 - Math.pow(1 - progress, 3);
-
-            setAnimatedValues({
-                wealth: Math.round(startValues.wealth + (endValues.wealth - startValues.wealth) * easeOut),
-                happiness: Math.round(startValues.happiness + (endValues.happiness - startValues.happiness) * easeOut),
-                credit_score: Math.round(startValues.credit_score + (endValues.credit_score - startValues.credit_score) * easeOut)
-            });
-
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
+            setAnimatedWealth(Math.round(startWealth + (endWealth - startWealth) * easeOut));
+            setAnimatedNetWorth(Math.round(startNet + (endNet - startNet) * easeOut));
+            if (progress < 1) rafRef.current = requestAnimationFrame(animate);
         };
+        rafRef.current = requestAnimationFrame(animate);
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, [session]);
 
-        animate();
-
-        if (prevSession) {
-            const newFlashState = {};
-            let soundPlayed = false;
-
-            // Check Wealth
-            if (session.wealth !== prevSession.wealth) {
-                const diff = session.wealth - prevSession.wealth;
-                newFlashState.wealth = diff > 0 ? 'flash-green' : 'flash-red';
-                if (!soundPlayed) {
-                    playSound(diff > 0 ? 'success' : 'error');
-                    soundPlayed = true;
-                }
-            }
-
-            // Check Happiness
-            if (session.happiness !== prevSession.happiness) {
-                newFlashState.happiness = session.happiness > prevSession.happiness ? 'flash-green' : 'flash-red';
-            }
-
-            // Check Credit
-            if (session.credit_score !== prevSession.credit_score) {
-                newFlashState.credit = session.credit_score > prevSession.credit_score ? 'flash-green' : 'flash-red';
-            }
-
-            setFlashState(newFlashState);
-
-            // Clear flash after animation
-            const timer = setTimeout(() => {
-                setFlashState({});
-            }, 1000);
-
-            return () => clearTimeout(timer);
+    useEffect(() => {
+        if (!session || !prevSession) {
+            if (session) setPrevSession(session);
+            return;
         }
-
+        const next = {};
+        if (session.wealth !== prevSession.wealth) {
+            next.wealth = session.wealth > prevSession.wealth ? 'flash-green' : 'flash-red';
+            playSound(session.wealth > prevSession.wealth ? 'success' : 'error');
+        }
+        if (session.credit_score !== prevSession.credit_score) {
+            next.credit = session.credit_score > prevSession.credit_score ? 'flash-green' : 'flash-red';
+        }
+        setFlashState(next);
         setPrevSession(session);
+        const t = setTimeout(() => setFlashState({}), 1000);
+        return () => clearTimeout(t);
     }, [session]);
 
     if (!session) return null;
 
-    const formatMoney = (amount) => {
-        if (amount >= 100000) {
-            return `₹${(amount / 100000).toFixed(1)}L`;
-        }
-        return `₹${amount.toLocaleString('en-IN')}`;
-    };
+    const currentMonth = session.current_month ?? 1;
+    const monthsTotal = 12;
+    const progressPct = Math.min(100, (currentMonth / monthsTotal) * 100);
+    const monthsRemaining = Math.max(0, monthsTotal - currentMonth);
 
-    const getWealthClass = (wealth) => {
-        if (wealth > 30000) return 'positive';
-        if (wealth < 10000) return 'negative';
-        return '';
-    };
+    const score = Math.min(100, Math.max(0, session.financial_literacy ?? 50));
+    const scoreStatus =
+        score >= 80 ? { label: 'Excellent', class: 'score-excellent' } :
+            score >= 50 ? { label: 'Good', class: 'score-good' } :
+                { label: 'Needs Work', class: 'score-needs-work' };
 
-    const getHappinessClass = (happiness) => {
-        if (happiness > 70) return 'positive';
-        if (happiness < 30) return 'negative';
-        if (happiness < 50) return 'warning';
-        return '';
-    };
+    // RBI Credit Score Norms (CIBIL-like 300-900 range)
+    const creditScore = session.credit_score || 700;
+    const creditStatus =
+        creditScore >= 750 ? { label: 'Excellent', class: 'score-excellent' } :
+            creditScore >= 700 ? { label: 'Good', class: 'score-good' } :
+                creditScore >= 650 ? { label: 'Fair', class: 'score-fair' } :
+                    creditScore >= 550 ? { label: 'Poor', class: 'score-poor' } :
+                        { label: 'Very Poor', class: 'score-needs-work' };
 
-    const getCreditClass = (credit) => {
-        if (credit >= 750) return 'positive';
-        if (credit < 600) return 'negative';
-        return '';
-    };
-
-    // Calculate circular progress for each stat
-    const getCircleProgress = (value, max) => {
-        const percentage = Math.min((value / max) * 100, 100);
-        const circumference = 2 * Math.PI * 36; // radius = 36
-        const strokeDashoffset = circumference - (percentage / 100) * circumference;
-        return { circumference, strokeDashoffset };
-    };
+    const wealthChange = prevSession
+        ? (session.wealth || 0) - (prevSession.wealth || 0)
+        : null;
 
     return (
-        <div className="stats-bar glass">
-            <div className={`stat-item ${flashState.wealth || ''}`}>
-                <div className="stat-circle-container">
-                    <svg className="stat-circle" viewBox="0 0 80 80">
-                        <circle className="stat-circle-bg" cx="40" cy="40" r="36" />
-                        <motion.circle
-                            className={`stat-circle-progress ${session.wealth > 20000 ? 'success' : session.wealth < 5000 ? 'danger' : 'warning'}`}
-                            cx="40"
-                            cy="40"
-                            r="36"
-                            initial={{ strokeDashoffset: getCircleProgress(0, 50000).circumference }}
-                            animate={{ strokeDashoffset: getCircleProgress(session.wealth, 50000).strokeDashoffset }}
-                            transition={{ type: "spring", stiffness: 60, damping: 15 }}
-                            style={{
-                                strokeDasharray: getCircleProgress(session.wealth, 50000).circumference
-                            }}
-                        />
-                    </svg>
-                    <span className="stat-circle-icon">💰</span>
+        <div className="stats-dashboard">
+            <div className={`stats-card stats-cash ${flashState.wealth || ''}`}>
+                <div className="stats-card-header">
+                    <span className="stats-card-icon stats-icon-cash">💳</span>
+                    <span className="stats-card-label">Current Cash</span>
                 </div>
-                <div className="stat-info">
-                    <span className="stat-label">Wealth</span>
-                    <span className={`stat-value ${getWealthClass(session.wealth)} ${flashState.wealth ? 'number-glow' : ''}`}>
-                        {formatMoney(animatedValues.wealth)}
-                    </span>
+                <div className="stats-card-value stats-value-cash">
+                    {formatMoney(animatedWealth)}
+                </div>
+                <div className="stats-card-meta">
+                    {wealthChange != null && wealthChange !== 0 && (
+                        <>
+                            {wealthChange > 0 && (
+                                <span className="stats-change-positive">+{formatMoney(wealthChange)}</span>
+                            )}
+                            {wealthChange < 0 && (
+                                <span className="stats-change-negative">/ {formatMoney(wealthChange)}</span>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
 
-            <div className={`stat-item ${flashState.happiness || ''}`}>
-                <div className="stat-circle-container">
-                    <svg className="stat-circle" viewBox="0 0 80 80">
-                        <circle className="stat-circle-bg" cx="40" cy="40" r="36" />
-                        <motion.circle
-                            className={`stat-circle-progress ${session.happiness > 50 ? 'success' : session.happiness < 25 ? 'danger' : 'warning'}`}
-                            cx="40"
-                            cy="40"
-                            r="36"
-                            initial={{ strokeDashoffset: getCircleProgress(0, 100).circumference }}
-                            animate={{ strokeDashoffset: getCircleProgress(session.happiness, 100).strokeDashoffset }}
-                            transition={{ type: "spring", stiffness: 60, damping: 15 }}
-                            style={{
-                                strokeDasharray: getCircleProgress(session.happiness, 100).circumference
-                            }}
-                        />
-                    </svg>
-                    <span className="stat-circle-icon">😊</span>
+            <div className="stats-card stats-networth">
+                <div className="stats-card-header">
+                    <span className="stats-card-icon stats-icon-networth">😊</span>
+                    <span className="stats-card-label">Well-being</span>
                 </div>
-                <div className="stat-info">
-                    <span className="stat-label">Happiness</span>
-                    <span className={`stat-value ${getHappinessClass(session.happiness)} ${flashState.happiness ? 'number-glow' : ''}`}>
-                        {animatedValues.happiness}%
-                    </span>
+                <div className="stats-card-value stats-value-networth">
+                    {session?.happiness || 0}%
                 </div>
+                <p className="stats-card-subtitle">Life satisfaction score</p>
             </div>
 
-            <div className={`stat-item ${flashState.credit || ''}`}>
-                <div className="stat-circle-container">
-                    <svg className="stat-circle" viewBox="0 0 80 80">
-                        <circle className="stat-circle-bg" cx="40" cy="40" r="36" />
-                        <motion.circle
-                            className={`stat-circle-progress ${session.credit_score >= 750 ? 'success' : session.credit_score < 600 ? 'danger' : 'primary'}`}
-                            cx="40"
-                            cy="40"
-                            r="36"
-                            initial={{ strokeDashoffset: getCircleProgress(0, 600).circumference }}
-                            animate={{ strokeDashoffset: getCircleProgress(session.credit_score - 300, 600).strokeDashoffset }}
-                            transition={{ type: "spring", stiffness: 60, damping: 15 }}
-                            style={{
-                                strokeDasharray: getCircleProgress(session.credit_score - 300, 600).circumference
-                            }}
-                        />
-                    </svg>
-                    <span className="stat-circle-icon">📊</span>
+            <div className="stats-card stats-progress">
+                <div className="stats-card-header">
+                    <span className="stats-card-icon stats-icon-progress">🧾</span>
+                    <span className="stats-card-label">Monthly Bills</span>
                 </div>
-                <div className="stat-info">
-                    <span className="stat-label">Credit</span>
-                    <span className={`stat-value ${getCreditClass(session.credit_score)} ${flashState.credit ? 'number-glow' : ''}`}>
-                        {animatedValues.credit_score}
-                    </span>
-                </div>
+                <div className="stats-card-value stats-value-progress">{formatMoney(session.recurring_expenses || 15000)}</div>
+                <p className="stats-card-subtitle">Living + Subscriptions</p>
             </div>
 
-            <div className="stat-item relative group cursor-help">
-                <div className="stat-circle-container">
-                    <div className="w-[72px] h-[72px] rounded-full bg-slate-800/50 border border-slate-700 flex items-center justify-center">
-                        <span className="text-2xl">💸</span>
-                    </div>
+            <div className={`stats-card stats-score ${flashState.credit || ''}`}>
+                <div className="stats-card-header">
+                    <span className="stats-card-icon stats-icon-score">📊</span>
+                    <span className="stats-card-label">Credit Score</span>
                 </div>
-                <div className="stat-info">
-                    <span className="stat-label">Monthly Bill</span>
-                    <span className="stat-value text-red-400">
-                        ₹{session.recurring_expenses?.toLocaleString() || 0}
-                    </span>
-                </div>
-
-                {/* Tooltip for Expenses */}
-                {session.active_expenses && session.active_expenses.length > 0 && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Active Subscriptions</h4>
-                        <ul className="space-y-1">
-                            {session.active_expenses.map((exp, idx) => (
-                                <li key={idx} className="flex justify-between text-xs text-slate-300">
-                                    <span>{exp.name}</span>
-                                    <span className="text-red-400">₹{exp.amount}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-
-            <div className="month-indicator">
-                <div className="month-number">Month {session.current_month}</div>
-                <span className="year-text">Year {Math.ceil(session.current_month / 12)} of 1</span>
+                <div className="stats-card-value stats-value-score">{session.credit_score || 700}</div>
+                <span className={`stats-score-pill ${creditStatus.class}`}>{creditStatus.label}</span>
             </div>
         </div>
     );
-};
+}
 
 export default GameStats;

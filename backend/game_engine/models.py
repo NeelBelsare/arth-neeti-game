@@ -11,6 +11,9 @@ class PlayerProfile(models.Model):
     total_games = models.IntegerField(default=0)
     highest_wealth = models.IntegerField(default=0)
     highest_score = models.IntegerField(default=0)
+    highest_credit_score = models.IntegerField(default=700)
+    highest_happiness = models.IntegerField(default=0)
+    highest_stock_profit = models.IntegerField(default=0)
     badges = models.JSONField(default=list)  # e.g., ["Savings Master", "Stock Guru"]
     created_at = models.DateTimeField(auto_now_add=True)
 

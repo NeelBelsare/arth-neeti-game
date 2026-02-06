@@ -320,6 +320,13 @@ class GameEngine:
     def _save_history(session, reason):
         persona_data = GameEngine.generate_persona(session)
         if session.user:
+            # Calculate stock profit (portfolio value - initial investment)
+            portfolio_value = 0
+            if session.portfolio and session.market_prices:
+                for sector, units in session.portfolio.items():
+                    price = session.market_prices.get(sector, 100)
+                    portfolio_value += int(units * price)
+            
             GameHistory.objects.create(
                 user=session.user,
                 final_wealth=session.wealth,
@@ -332,8 +339,11 @@ class GameEngine:
             )
             profile, _ = PlayerProfile.objects.get_or_create(user=session.user)
             profile.total_games += 1
-            profile.highest_wealth = max(profile.highest_wealth, session.wealth)
+            profile.highest_wealth = max(profile.highest_wealth, session.wealth + portfolio_value)
             profile.highest_score = max(profile.highest_score, session.financial_literacy)
+            profile.highest_credit_score = max(profile.highest_credit_score, session.credit_score)
+            profile.highest_happiness = max(profile.highest_happiness, session.happiness)
+            profile.highest_stock_profit = max(profile.highest_stock_profit, portfolio_value)
             profile.save()
 
     # ================= STOCK MARKET TRADING =================

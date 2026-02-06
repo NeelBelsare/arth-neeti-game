@@ -129,18 +129,40 @@ const GameOverScreen = ({ session, persona, reason, onPlayAgain }) => {
                                     <div className="report-stats-grid">
                                         <div className="report-stat-item">
                                             <span className="stat-icon">💰</span>
-                                            <span className="stat-name">Net Worth</span>
+                                            <span className="stat-name">Final Wealth</span>
                                             <span className="stat-val">₹{session.wealth.toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="report-stat-item">
-                                            <span className="stat-icon">📊</span>
+                                            <span className="stat-icon">😊</span>
+                                            <span className="stat-name">Well-being Index</span>
+                                            <span className="stat-val">{session.happiness}%</span>
+                                        </div>
+                                        <div className="report-stat-item">
+                                            <span className="stat-icon">💳</span>
                                             <span className="stat-name">Credit Score</span>
                                             <span className="stat-val">{session.credit_score}</span>
                                         </div>
                                         <div className="report-stat-item">
                                             <span className="stat-icon">📚</span>
-                                            <span className="stat-name">Financial Knowledge</span>
+                                            <span className="stat-name">Financial Credits</span>
                                             <span className="stat-val">{session.financial_literacy || 50}/100</span>
+                                        </div>
+                                        {session.portfolio && Object.keys(session.portfolio).some(k => session.portfolio[k] > 0) && (
+                                            <div className="report-stat-item">
+                                                <span className="stat-icon">📈</span>
+                                                <span className="stat-name">Stock Portfolio</span>
+                                                <span className="stat-val">
+                                                    ₹{Object.entries(session.portfolio || {}).reduce((sum, [sector, units]) => {
+                                                        const price = session.market_prices?.[sector] || 100;
+                                                        return sum + Math.round(units * price);
+                                                    }, 0).toLocaleString('en-IN')}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="report-stat-item">
+                                            <span className="stat-icon">📅</span>
+                                            <span className="stat-name">Months Survived</span>
+                                            <span className="stat-val">{session.current_month}/12</span>
                                         </div>
                                     </div>
                                 </div>

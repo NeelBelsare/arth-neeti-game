@@ -442,6 +442,59 @@
     border-color: rgba(99, 102, 241, 0.6);
 }
 
+.game-container {
+    max-width: 900px;
+}
+
+.game-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm) 0;
+}
+
+.game-toolbar .language-toggle {
+    margin-bottom: 0;
+}
+
+.game-toolbar-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.game-toolbar-btn {
+    padding: 0.4rem 0.75rem;
+    background: rgba(45, 48, 62, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.game-toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(139, 92, 246, 0.4);
+    color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+    .game-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .game-toolbar-links {
+        justify-content: center;
+    }
+}
+
 .choices-container {
     display: flex;
     flex-direction: column;

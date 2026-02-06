@@ -1,0 +1,371 @@
+/* Stock ticker: same design system as stats and scenario (dark cards, rounded) */
+.stock-ticker-new {
+    background: #2d303e;
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.stock-ticker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+}
+
+.stock-ticker-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.stock-ticker-title-icon {
+    font-size: 1.25rem;
+}
+
+.stock-ticker-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #86efac;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stock-ticker-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: stock-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes stock-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.stock-ticker-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+}
+
+.stock-ticker-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.stock-ticker-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.stock-ticker-card.flash-green {
+    animation: flashGreen 0.6s ease-out;
+}
+
+.stock-ticker-card.flash-red {
+    animation: flashRed 0.6s ease-out;
+}
+
+@keyframes flashGreen {
+    0% { background: rgba(34, 197, 94, 0.3); }
+    100% { background: rgba(255, 255, 255, 0.04); }
+}
+
+@keyframes flashRed {
+    0% { background: rgba(239, 68, 68, 0.3); }
+    100% { background: rgba(255, 255, 255, 0.04); }
+}
+
+.stock-ticker-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.stock-ticker-card-icon {
+    font-size: 1.25rem;
+}
+
+.stock-ticker-card-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.stock-ticker-card-price {
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-family: inherit;
+}
+
+.stock-price-yellow { color: #fbbf24; }
+.stock-price-cyan { color: #22d3ee; }
+.stock-price-green { color: #22c55e; }
+
+.stock-ticker-card-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-bottom: 0.75rem;
+}
+
+.stock-ticker-card-meta strong {
+    color: #f8fafc;
+}
+
+.stock-ticker-card-meta .value {
+    color: #22c55e;
+    font-weight: 700;
+}
+
+.stock-ticker-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.stock-ticker-btn-buy {
+    padding: 0.4rem 0.6rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    border-radius: var(--radius-sm);
+    color: #86efac;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.stock-ticker-btn-buy:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.25);
+}
+
+.stock-ticker-btn-sell {
+    padding: 0.4rem 0.6rem;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: var(--radius-sm);
+    color: #fca5a5;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.stock-ticker-btn-sell:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+.stock-ticker-btn-sell:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Modal */
+.stock-ticker-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: var(--space-md);
+    animation: fadeIn 0.2s ease-out;
+}
+
+.stock-ticker-modal {
+    width: 100%;
+    max-width: 400px;
+    background: #2d303e;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    animation: slideUp 0.3s ease-out;
+}
+
+.stock-ticker-modal-header {
+    padding: var(--space-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stock-ticker-modal-header.buy {
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.stock-ticker-modal-header.sell {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.stock-ticker-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.stock-ticker-modal-body {
+    padding: var(--space-lg);
+}
+
+.stock-ticker-modal-stats {
+    font-size: 0.875rem;
+    color: #94a3b8;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.stock-ticker-modal-stats div {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.stock-ticker-modal-stats div:last-child {
+    margin-bottom: 0;
+}
+
+.stock-ticker-modal-stats strong {
+    color: #f8fafc;
+}
+
+.stock-ticker-modal-msg {
+    margin-bottom: var(--space-md);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.stock-ticker-modal-msg.success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.stock-ticker-modal-msg.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.stock-ticker-modal-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.stock-ticker-modal-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: #f8fafc;
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.stock-ticker-modal-input:focus {
+    outline: none;
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+.stock-ticker-modal-quick {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.stock-ticker-modal-quick button {
+    flex: 1;
+    padding: 0.4rem;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius-sm);
+    color: #a5b4fc;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.stock-ticker-modal-quick button:hover {
+    background: rgba(99, 102, 241, 0.25);
+}
+
+.stock-ticker-modal-actions {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+}
+
+.stock-ticker-modal-actions button {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.stock-ticker-modal-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.stock-ticker-modal-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+}
+
+.stock-ticker-modal-confirm-buy {
+    background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+    border: none;
+    color: #fff;
+}
+
+.stock-ticker-modal-confirm-sell {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    border: none;
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .stock-ticker-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stock-ticker-new {
+        padding: var(--space-md);
+    }
+}

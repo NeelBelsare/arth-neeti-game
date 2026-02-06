@@ -1,0 +1,123 @@
+/* Four-card dashboard: Current Cash, Net Worth, Progress, Score */
+.stats-dashboard {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.stats-card {
+    background: #2d303e;
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.stats-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.stats-card-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.stats-icon-cash { filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.4)); }
+.stats-icon-networth { filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.4)); }
+.stats-icon-progress { filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.4)); }
+.stats-icon-score { filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.4)); }
+
+.stats-card-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.stats-card-value {
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.stats-value-cash { color: #fbbf24; }
+.stats-value-networth { color: #a78bfa; }
+.stats-value-progress { color: #f8fafc; }
+.stats-value-score { color: #f8fafc; }
+
+.stats-card-meta {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.stats-change-positive { color: #22c55e; font-weight: 600; }
+.stats-change-negative { color: #ef4444; font-weight: 600; }
+
+.stats-card-subtitle {
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.stats-progress-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.stats-progress-fill {
+    height: 100%;
+    background: #22c55e;
+    border-radius: 999px;
+    min-width: 4px;
+}
+
+.stats-score-pill {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.score-excellent { background: #22c55e; }
+.score-good { background: #f59e0b; }
+.score-needs-work { background: #ef4444; }
+
+.stats-card.flash-green .stats-card-value { animation: numberGlow 0.8s ease-out; }
+.stats-card.flash-red .stats-card-value { animation: numberGlow 0.8s ease-out; }
+
+@media (max-width: 900px) {
+    .stats-dashboard {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-dashboard {
+        grid-template-columns: 1fr;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+    }
+
+    .stats-card {
+        padding: var(--space-md);
+    }
+
+    .stats-card-value {
+        font-size: 1.35rem;
+    }
+}
