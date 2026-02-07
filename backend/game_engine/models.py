@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -72,6 +73,7 @@ class GameSession(models.Model):
         ordering = ['-created_at']
 
 
+
 # --- 3. GAME HISTORY (for profile dashboard) ---
 class GameHistory(models.Model):
     """Summary of completed games for the profile dashboard."""
@@ -90,6 +92,44 @@ class GameHistory(models.Model):
 
     class Meta:
         ordering = ['-played_at']
+
+
+class StockHistory(models.Model):
+    """
+    Stores the PRE-GENERATED price trajectory for the entire game session.
+    This is the 'Ground Truth' that the ML model predicts.
+    """
+    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='market_history')
+    sector = models.CharField(max_length=50) # 'tech', 'gold', 'real_estate'
+    month = models.IntegerField() # 1 to 12
+    price = models.IntegerField()
+    
+    # ML Confidence Metrics (Optional for UI)
+    volatility_index = models.FloatField(default=0.0) 
+
+    class Meta:
+        ordering = ['session', 'month']
+        unique_together = ('session', 'sector', 'month')
+
+class FuturesContract(models.Model):
+    """
+    Represents a 'Short Selling' hedge.
+    Player sells NOW at a guaranteed price based on ML prediction.
+    """
+    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='futures_contracts')
+    sector = models.CharField(max_length=50)
+    units = models.FloatField()
+    strike_price = models.IntegerField() # The price they got paid
+    spot_price_at_sale = models.IntegerField() # Reference for analytics
+    duration_months = models.IntegerField()
+    created_month = models.IntegerField()
+    
+    # Profit/Loss calculation (Virtual, since cash is immediate)
+    final_market_price = models.IntegerField(null=True, blank=True)
+    is_successful = models.BooleanField(default=False) # True if Strike > Final Price
+
+    def __str__(self):
+        return f"{self.sector} Future - {self.units}u @ {self.strike_price}"
 
 
 # --- 4. MARKET EVENTS (News System) ---
@@ -112,16 +152,31 @@ class MarketEvent(models.Model):
 # --- 5. RECURRING EXPENSES ---
 class RecurringExpense(models.Model):
     """Tracks subscriptions and recurring costs for a session."""
+    CATEGORY_CHOICES = [
+        ('HOUSING', 'Housing'),
+        ('FOOD', 'Food'),
+        ('TRANSPORT', 'Transport'),
+        ('UTILITIES', 'Utilities'),
+        ('LIFESTYLE', 'Lifestyle'),
+        ('DEBT', 'Debt & Loans'),
+        ('OTHER', 'Other')
+    ]
+
     session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='expenses')
     name = models.CharField(max_length=100)  # e.g., "Netflix Subscription"
     amount = models.IntegerField()  # Monthly cost
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER')
+    is_essential = models.BooleanField(default=False)
+    inflation_rate = models.FloatField(default=0.0) # Annual inflation (e.g., 0.05)
+    
     started_month = models.IntegerField()  # When expense started
     is_cancelled = models.BooleanField(default=False)
     cancelled_month = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         status = "Active" if not self.is_cancelled else "Cancelled"
-        return f"{self.name} (₹{self.amount}/mo) - {status}"
+        type_str = "Needs" if self.is_essential else "Wants"
+        return f"{self.name} ({self.category} - {type_str}) - ₹{self.amount}/mo"
 
 
 # --- 6. SCENARIO CARDS ---

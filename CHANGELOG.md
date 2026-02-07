@@ -2,56 +2,43 @@
 
 All notable changes to Arth-Neeti will be documented in this file.
 
+## [3.0.0] - 2026-02-08
+
+### 🚀 Major Release - "Market Mogul" Update
+
+Version 3.0.0 introduces complex financial simulations including a real-time stock market, loan management, and AI-powered advisory.
+
+### New Features
+
+#### 📈 Stock Market 2.0
+- **Dynamic Market Sectors**: Invest in Gold, Tech, and Real Estate.
+- **Market Trends**: Stocks track detailed history and simulate volatility.
+- **Futures Contracts**: (Backend Support) Mechanism for short-selling and hedging.
+
+#### 🤖 AI Advisory System
+- **Gemini Integration**: Personalized financial advice using Google's Gemini 1.5 Flash.
+- **Hybrid Fallback**: Deterministic rule-based advice engine ensures 100% uptime even without API keys.
+
+#### 💳 Advanced Banking
+- **Loan System**: Take loans from Family (Low Interest) or Instant Apps (High Risk).
+- **Recurring Expenses**: Subscription tracking logic (Netflix, Gym, etc.) that drains monthly wealth.
+
+#### 🔐 Security & Auth
+- **Firebase Authentication**: Robust Google OAuth and Email/Password flows.
+- **Identity Verification**: Backend middleware verifies Firebase ID tokens for every request.
+
+#### 🌐 Internationalization
+- **Bilingual Interface**: Seamless toggle between English and Hindi.
+
 ## [1.0.0] - 2026-01-30
 
 ### 🎉 Initial Release - Hackathon Version
-
 First complete version of Arth-Neeti, built for the NCFE Financial Literacy Hackathon.
 
 ### Features
-
-#### Core Gameplay
-- 🃏 **36 Scenario Cards** - Covering investments, traps, emergencies, and lifestyle choices
-- 📅 **12-Month Game Duration** - 3 cards per month for a complete financial year
-- 🎭 **5 Financial Personas** - Warren Buffett, Cautious Saver, Balanced Spender, YOLO Enthusiast, FOMO Victim
-
-#### Game Mechanics
-- 💰 **Wealth Tracking** - Starting salary ₹25,000
-- 😊 **Happiness Meter** - 0-100 life satisfaction scale
-- 📊 **Credit Score** - 300-900 CIBIL-like rating
-- 💡 **Lifelines** - 3 "Ask NCFE" hints per game
-
-#### User Experience
-- 🔊 **Sound Effects** - Audio feedback for gains/losses
-- ✨ **Visual Animations** - Green/red flash on stat changes
-- 📱 **Session Persistence** - Resume games after browser refresh
-- 🖨️ **Printable Certificate** - Financial Health Report
-
-#### Technical
-- 🐳 **Docker Support** - One-command deployment
-- 🔧 **Environment Variables** - Configurable API URLs
-- 📝 **API Documentation** - Complete REST API docs
-
-### Categories of Scenarios
-- NEEDS - Essential expenses
-- WANTS - Lifestyle choices
-- INVESTMENT - Wealth building
-- EMERGENCY - Unexpected situations
-- SOCIAL - Peer pressure scenarios
-- TRAP - Financial scams and pitfalls
-
----
-
-## Future Roadmap
-
-### [1.1.0] - Planned
-- [ ] User authentication
-- [ ] Leaderboards
-- [ ] More scenario cards (50+)
-- [ ] Hindi language support
-
-### [2.0.0] - Vision
-- [ ] Mobile app (React Native)
-- [ ] Multiplayer mode
-- [ ] AI-generated scenarios
-- [ ] Integration with banking APIs
+- 🃏 **36 Scenario Cards**
+- 📅 **12-Month Game Duration**
+- 🎭 **5 Financial Personas**
+- 💰 **Wealth & Happiness Tracking**
+- 🔊 **Audio Feedback**
+- 🐳 **Docker Support**

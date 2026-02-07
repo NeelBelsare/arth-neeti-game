@@ -2,7 +2,8 @@ import random
 import uuid
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from .models import GameSession, PlayerChoice, RecurringExpense, GameHistory, PlayerProfile, ScenarioCard
+from .models import GameSession, PlayerChoice, RecurringExpense, GameHistory, PlayerProfile, ScenarioCard, StockHistory, FuturesContract
+from .ml.predictor import MarketPredictor
 
 class GameEngine:
     # Game Configuration Constants
@@ -47,6 +48,47 @@ class GameEngine:
         # Init market trends
         session.market_trends = {s: 0 for s in GameEngine.CONFIG['STOCK_SECTORS']}
         session.save()
+
+        # --- NEW: Generate Deterministic Market History ---
+        initial_prices = {}
+        for sector in GameEngine.CONFIG['STOCK_SECTORS']:
+            # Generate 12 months of data
+            prices = MarketPredictor.generate_trajectory(sector, 12)
+            
+            # Save to DB
+            history_objs = [
+                StockHistory(session=session, sector=sector, month=i+1, price=p)
+                for i, p in enumerate(prices)
+            ]
+            StockHistory.objects.bulk_create(history_objs)
+            
+            # Set Month 1 Price
+            initial_prices[sector] = prices[0]
+            
+        session.market_prices = initial_prices
+        session.portfolio = {s: 0 for s in GameEngine.CONFIG['STOCK_SECTORS']}
+        session.save()
+
+        # --- NEW: Initialize Monthly Bills (Budget) ---
+        # Base Expenses (Total ~14.5k)
+        default_expenses = [
+            {'name': 'Rent (2BHK)', 'amount': 10000, 'category': 'HOUSING', 'is_essential': True, 'inflation': 0.05},
+            {'name': 'Groceries', 'amount': 2500, 'category': 'FOOD', 'is_essential': True, 'inflation': 0.07},
+            {'name': 'Utilities (Electricity/Water)', 'amount': 1000, 'category': 'UTILITIES', 'is_essential': True, 'inflation': 0.03},
+            {'name': 'Transport (Metro/Bus)', 'amount': 1000, 'category': 'TRANSPORT', 'is_essential': True, 'inflation': 0.05}
+        ]
+        
+        for exp in default_expenses:
+            RecurringExpense.objects.create(
+                session=session,
+                name=exp['name'],
+                amount=exp['amount'],
+                category=exp['category'],
+                is_essential=exp['is_essential'],
+                inflation_rate=exp['inflation'],
+                started_month=session.current_month
+            )
+            
         return session
 
     # ================= CORE GAMEPLAY =================
@@ -134,6 +176,9 @@ class GameEngine:
                 session=session,
                 name=choice.expense_name or f"Expense from '{card.title}'",
                 amount=choice.adds_recurring_expense,
+                category='LIFESTYLE', # Default items from cards to Lifestyle usually
+                is_essential=False,
+                inflation_rate=0.04,
                 started_month=session.current_month
             )
         
@@ -264,21 +309,35 @@ class GameEngine:
         session.wealth += salary_credit
         report_lines.append(f"+₹{salary_credit} Salary credited.")
 
-        # 3. Recurring Expenses (The "Real" Source of Truth)
+        # 3. Recurring Expenses & Inflation
+        # The "Real" Source of Truth is now the RecurringExpense table
         active_expenses = session.expenses.filter(is_cancelled=False)
-        total_recurring = sum(e.amount for e in active_expenses)
+        total_monthly_drain = 0
+        bill_report_lines = []
         
-        # Determine Cost of Living (Inflation / Lifestyle Creep)
-        # Base: 15k, increases by 200/month
-        cost_of_living = 15000 + (session.current_month * 200)
+        # Check for Annual Inflation (Every 12 months, starting month 13)
+        apply_inflation = (session.current_month > 1) and (session.current_month % 12 == 1)
         
-        total_monthly_drain = total_recurring + cost_of_living
+        for expense in active_expenses:
+            # Apply Inflation if needed
+            if apply_inflation and expense.inflation_rate > 0:
+                old_amount = expense.amount
+                # Inflation formula: New = Old * (1 + Rate)
+                new_amount = int(old_amount * (1 + expense.inflation_rate))
+                expense.amount = new_amount
+                expense.save()
+                bill_report_lines.append(f"📈 {expense.name} rose to ₹{new_amount} (+{(expense.inflation_rate*100):.0f}%)")
+
+            total_monthly_drain += expense.amount
+        
         session.wealth -= total_monthly_drain
         
         # Update cache for UI
         session.recurring_expenses = total_monthly_drain
         
-        report_lines.append(f"-₹{total_monthly_drain} Expenses (₹{cost_of_living} Living + ₹{total_recurring} Subs).")
+        report_lines.append(f"-₹{total_monthly_drain} Total Bills Paid.")
+        if bill_report_lines:
+             report_lines.append(" ".join(bill_report_lines))
 
         # 4. Market Update
         market_changes = GameEngine.update_market_prices(session)
@@ -317,44 +376,24 @@ class GameEngine:
             return []
 
         changes = []
+        new_month = session.current_month
         
-        for sector in GameEngine.CONFIG['STOCK_SECTORS']:
-            if sector not in session.market_prices:
-                continue
+        # Fetch prices from History table
+        histories = StockHistory.objects.filter(session=session, month=new_month)
+        
+        for record in histories:
+            old_price = session.market_prices.get(record.sector, 0)
+            new_price = record.price
             
-            # Get current state
-            current_price = session.market_prices[sector]
-            trend = session.market_trends.get(sector, 0)
+            session.market_prices[record.sector] = new_price
             
-            # Trend impact: Trend 5 = +5%
-            # Randomness: +/- 2%
-            trend_factor = trend / 100.0
-            random_factor = random.uniform(-0.02, 0.02)
-            
-            total_change_pct = trend_factor + random_factor
-            
-            new_price = int(current_price * (1 + total_change_pct))
-            new_price = max(1, new_price) # Prevent 0 or negative price
-            
-            session.market_prices[sector] = new_price
-            
-            # Log significant moves
-            if abs(total_change_pct) > 0.05:
-                direction = "surged" if total_change_pct > 0 else "tanked"
-                changes.append(f"{sector.title()} {direction}")
-
-            # Decay trend (Mean Reversion)
-            # Trends slowly drift back to 0
-            if trend > 0:
-                session.market_trends[sector] = max(0, trend - 1)
-            elif trend < 0:
-                session.market_trends[sector] = min(0, trend + 1)
-                
-            # Random Event: New Trend Formation (15% chance)
-            if random.random() < 0.15:
-                # New trend between -4 and +4
-                session.market_trends[sector] = random.randint(-4, 4)
-                
+            # Calculate Change % for News Feed
+            if old_price > 0:
+                pct_change = ((new_price - old_price) / old_price) * 100
+                if abs(pct_change) > 5:
+                    direction = "surged" if pct_change > 0 else "tanked"
+                    changes.append(f"{record.sector.title()} {direction} {abs(pct_change):.1f}%")
+        
         return changes
 
     # ================= LOAN LOGIC =================
@@ -394,6 +433,9 @@ class GameEngine:
                 session=session,
                 name=Heading,
                 amount=500, # 5% monthly interest
+                category='DEBT',
+                is_essential=True, # Debt is essential!
+                inflation_rate=0.0, # Fixed interest usually
                 started_month=session.current_month
             )
             msg = f"Loan approved: ₹{amount}. Credit score dropped. Monthly interest added."
@@ -530,6 +572,46 @@ class GameEngine:
         return {
             'session': session,
             'message': f"Sold {units_to_sell:.2f} units for ₹{int(cash_value)}."
+        }
+
+    @staticmethod
+    def sell_futures(session, sector, units, duration):
+        """
+        Executes a Futures Contract sale.
+        """
+        if sector not in session.market_prices:
+            return {'error': "Invalid sector"}
+            
+        current_price = session.market_prices[sector]
+        current_owned = session.portfolio.get(sector, 0)
+        
+        if current_owned < units:
+            return {'error': f"Insufficient units. You have {current_owned}."}
+            
+        # 1. Get Quote
+        contract_price = MarketPredictor.get_futures_quote(current_price, sector, duration)
+        total_payout = contract_price * units
+        
+        # 2. Execute Trade (Immediate Cash, Remove Stock)
+        session.wealth += int(total_payout)
+        session.portfolio[sector] = current_owned - units
+        
+        # 3. Record Contract
+        FuturesContract.objects.create(
+            session=session,
+            sector=sector,
+            units=units,
+            strike_price=contract_price,
+            spot_price_at_sale=current_price,
+            duration_months=duration,
+            created_month=session.current_month
+        )
+        
+        session.save()
+        
+        return {
+            'message': f"Contract Sold! {units} {sector} units @ ₹{contract_price}/unit. +₹{int(total_payout)}",
+            'session': session
         }
 
     @staticmethod

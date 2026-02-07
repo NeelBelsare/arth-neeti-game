@@ -9,7 +9,8 @@ from django.core.exceptions import PermissionDenied
 
 from .models import (
     GameSession, ScenarioCard, Choice, PlayerChoice,
-    PlayerProfile, GameHistory, MarketEvent, RecurringExpense
+    PlayerProfile, GameHistory, MarketEvent, RecurringExpense,
+    StockHistory, FuturesContract
 )
 from .serializers import (
     GameSessionSerializer, ScenarioCardSerializer, SubmitChoiceSerializer,
@@ -500,3 +501,54 @@ def market_status(request, session_id):
         'total_portfolio_value': portfolio_value,
         'net_worth': session.wealth + portfolio_value
     })
+
+
+@api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
+def trade_futures(request):
+    session_id = request.data.get('session_id')
+    sector = request.data.get('sector')
+    units = float(request.data.get('units', 0))
+    duration = int(request.data.get('duration', 1))
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+        
+        result = GameEngine.sell_futures(session, sector, units, duration)
+        
+        if 'error' in result:
+             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+        
+    except GameSession.DoesNotExist:
+        return Response({'error': 'Session not found'}, status=404)
+
+
+@api_view(['GET'])
+def get_market_history(request, session_id):
+    """Returns price history up to the CURRENT month for charts."""
+    try:
+        session = GameSession.objects.get(id=session_id)
+    except GameSession.DoesNotExist:
+        return Response({'error': 'Session not found'}, status=404)
+
+    # Only fetch months that have happened (1 to current)
+    history = StockHistory.objects.filter(
+        session=session, 
+        month__lte=session.current_month
+    ).order_by('month')
+    
+    data = {}
+    for h in history:
+        if h.sector not in data:
+            data[h.sector] = []
+        data[h.sector].append({'month': h.month, 'price': h.price})
+        
+    return Response(data)
+

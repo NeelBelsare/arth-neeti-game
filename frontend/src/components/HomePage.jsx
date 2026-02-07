@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './HomePage.css';
+import BudgetDisplay from './BudgetDisplay';
 
 const HomePage = ({ onStartGame, isLoading, username }) => {
     const navigate = useNavigate();
@@ -130,6 +131,19 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                 </div>
             </div>
 
+            {/* Budget Preview Section */}
+            <div className="budget-preview-section" style={{ maxWidth: '800px', margin: '0 auto 2rem auto', padding: '0 1rem' }}>
+                <BudgetDisplay
+                    expenses={[
+                        { id: 1, name: 'Rent (2BHK)', amount: 10000, category: 'HOUSING', is_essential: true },
+                        { id: 2, name: 'Groceries', amount: 2500, category: 'FOOD', is_essential: true },
+                        { id: 3, name: 'Utilities', amount: 1000, category: 'UTILITIES', is_essential: true },
+                        { id: 4, name: 'Transport', amount: 1000, category: 'TRANSPORT', is_essential: true },
+                    ]}
+                    totalMonthlyDrain={14500}
+                />
+            </div>
+
             {/* Features Section */}
             <div className="goals-section">
                 <div className="goal-card">
@@ -141,7 +155,6 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                     </div>
                     <p className="goal-description">Invest in Dalal Street - buy low, sell high!</p>
                 </div>
-
                 <div className="goal-card">
                     <div className="goal-icon green">🏦</div>
                     <h3 className="goal-title">Loans</h3>
@@ -151,7 +164,6 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                     </div>
                     <p className="goal-description">Borrow when broke, but beware of interest!</p>
                 </div>
-
                 <div className="goal-card">
                     <div className="goal-icon purple">💡</div>
                     <h3 className="goal-title">Lifelines</h3>

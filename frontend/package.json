@@ -1,7 +1,7 @@
 {
   "name": "arth-neeti-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "3.0.0",
   "type": "module",
   "engines": {
     "node": ">=18.0.0 <21.0.0"

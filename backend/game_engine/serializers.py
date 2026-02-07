@@ -32,7 +32,10 @@ class ScenarioCardSerializer(serializers.ModelSerializer):
 class RecurringExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecurringExpense
-        fields = ['id', 'name', 'amount', 'started_month', 'is_cancelled']
+        fields = [
+            'id', 'name', 'amount', 'category', 'is_essential', 
+            'inflation_rate', 'started_month', 'is_cancelled'
+        ]
 
 
 class GameSessionSerializer(serializers.ModelSerializer):

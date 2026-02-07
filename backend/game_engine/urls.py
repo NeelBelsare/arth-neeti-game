@@ -21,4 +21,6 @@ urlpatterns = [
     path('buy-stock/', views.buy_stock, name='buy-stock'),
     path('sell-stock/', views.sell_stock, name='sell-stock'),
     path('market-status/<int:session_id>/', views.market_status, name='market-status'),
+    path('trade/futures/', views.trade_futures, name='trade-futures'),
+    path('market/history/<int:session_id>/', views.get_market_history, name='market-history'),
 ]
