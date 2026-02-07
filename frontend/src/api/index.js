@@ -134,24 +134,46 @@ export const api = {
     },
 
     async buyStock(sessionId, sector, amount) {
-        const response = await fetch(`${API_BASE_URL}/buy-stock/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-            body: JSON.stringify({ session_id: sessionId, sector, amount }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to buy stock');
-        return data;
+        const url = `${API_BASE_URL}/buy-stock/`;
+        console.log(`💰 Buying stock: ${sector}, Amount: ${amount}, URL: ${url}`);
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+                body: JSON.stringify({ session_id: sessionId, sector, amount }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                console.error('❌ Buy Stock Failed:', data);
+                throw new Error(data.error || 'Failed to buy stock');
+            }
+            return data;
+        } catch (error) {
+            console.error('❌ Buy Stock Error:', error);
+            throw error;
+        }
     },
 
     async sellStock(sessionId, sector, units) {
-        const response = await fetch(`${API_BASE_URL}/sell-stock/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-            body: JSON.stringify({ session_id: sessionId, sector, units }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to sell stock');
-        return data;
+        const url = `${API_BASE_URL}/sell-stock/`;
+        console.log(`💰 Selling stock: ${sector}, Units: ${units}, URL: ${url}`);
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+                body: JSON.stringify({ session_id: sessionId, sector, amount: units }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                console.error('❌ Sell Stock Failed:', data);
+                throw new Error(data.error || 'Failed to sell stock');
+            }
+            return data;
+        } catch (error) {
+            console.error('❌ Sell Stock Error:', error);
+            throw error;
+        }
     },
 };

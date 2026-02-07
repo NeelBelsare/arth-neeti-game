@@ -66,6 +66,8 @@ export default function StockTicker({ session, onBuy, onSell }) {
         }
     };
 
+
+
     return (
         <>
             <div className="stock-ticker-new">
