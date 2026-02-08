@@ -53,7 +53,8 @@ function GameComponent() {
                     const sessionData = await api.getSession(savedSessionId);
                     if (sessionData.session && sessionData.session.is_active) {
                         updateSession(sessionData.session);
-                        const cardData = await api.getCard(savedSessionId);
+                        const language = localStorage.getItem('language') || 'en';
+                        const cardData = await api.getCard(savedSessionId, language);
                         if (!cardData.game_complete) {
                             setCurrentCard(cardData.card);
                             setGameState(GAME_STATE.PLAYING);
@@ -109,7 +110,8 @@ function GameComponent() {
 
         setIsLoading(true);
         try {
-            const cardData = await api.getCard(session.id);
+            const language = localStorage.getItem('language') || 'en';
+            const cardData = await api.getCard(session.id, language);
 
             if (cardData.game_complete) {
                 setGameOverData({
@@ -203,7 +205,8 @@ function GameComponent() {
                 updateSession(result.session);
             }
 
-            const cardData = await api.getCard(session.id);
+            const language = localStorage.getItem('language') || 'en';
+            const cardData = await api.getCard(session.id, language);
             if (cardData.game_complete) {
                 setGameOverData({
                     reason: 'COMPLETED',

@@ -44,8 +44,8 @@ export const api = {
         return response.json();
     },
 
-    async getCard(sessionId) {
-        const response = await fetch(`${API_BASE_URL}/get-card/${sessionId}/`, {
+    async getCard(sessionId, language = 'en') {
+        const response = await fetch(`${API_BASE_URL}/get-card/${sessionId}/?lang=${language}`, {
             headers: { ...(await getAuthHeaders()) },
         });
         if (!response.ok) throw new Error('Failed to get card');

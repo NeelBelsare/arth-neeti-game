@@ -74,6 +74,7 @@ def start_game(request):
 def get_card(request, session_id):
     """
     Get a random scenario card appropriate for the current game month.
+    Supports language parameter: ?lang=hi or ?lang=mr
     """
     try:
         session = GameSession.objects.get(id=session_id, is_active=True)
@@ -82,6 +83,9 @@ def get_card(request, session_id):
             {'error': 'Session not found or inactive.'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+    # Get language from query parameter
+    language = request.GET.get('lang', 'en')
 
     # Use GameEngine for smart selection
     card = GameEngine.get_next_card(session)
@@ -93,7 +97,8 @@ def get_card(request, session_id):
             'session': GameSessionSerializer(session).data
         })
 
-    serializer = ScenarioCardSerializer(card)
+    # Pass language context to serializer
+    serializer = ScenarioCardSerializer(card, context={'language': language})
     
     # Calculate remaining (approximation)
     remaining = ScenarioCard.objects.filter(min_month__lte=session.current_month).count()
@@ -101,7 +106,6 @@ def get_card(request, session_id):
     return Response({
         'card': serializer.data,
         'session': GameSessionSerializer(session).data,
-        # Just return a placeholder or calculate if needed
         'cards_remaining': remaining 
     })
 

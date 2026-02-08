@@ -1,11 +1,49 @@
-from rest_framework import serializers
-from .models import (
-    GameSession, ScenarioCard, Choice, PlayerProfile, 
-    GameHistory, MarketEvent, RecurringExpense
-)
+# Updated views.py snippet for get_card endpoint
+# Add this to your existing views.py file
+
+@api_view(['GET'])
+def get_card(request, session_id):
+    """
+    Get a random scenario card appropriate for the current game month.
+    Supports language parameter: ?lang=hi or ?lang=mr
+    """
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response(
+            {'error': 'Session not found or inactive.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Get language from query parameter
+    language = request.GET.get('lang', 'en')
+
+    # Use GameEngine for smart selection
+    card = GameEngine.get_next_card(session)
+
+    if not card:
+        return Response({
+            'message': 'No more scenarios available!',
+            'game_complete': True,
+            'session': GameSessionSerializer(session).data
+        })
+
+    # Pass language context to serializer
+    serializer = ScenarioCardSerializer(card, context={'language': language})
+    
+    # Calculate remaining (approximation)
+    remaining = ScenarioCard.objects.filter(min_month__lte=session.current_month).count()
+    
+    return Response({
+        'card': serializer.data,
+        'session': GameSessionSerializer(session).data,
+        'cards_remaining': remaining 
+    })
 
 
 class ChoiceSerializer(serializers.ModelSerializer):
+    """Dynamic serializer that returns localized choice based on language context."""
+    
     class Meta:
         model = Choice
         fields = [
@@ -15,10 +53,33 @@ class ChoiceSerializer(serializers.ModelSerializer):
             'feedback', 'feedback_hi', 'feedback_mr',
             'adds_recurring_expense', 'expense_name', 'cancels_expense_name'
         ]
+    
+    def to_representation(self, instance):
+        """Override to return language-specific fields."""
+        data = super().to_representation(instance)
+        
+        # Get language from context (set in view)
+        language = self.context.get('language', 'en')
+        
+        if language == 'hi':
+            data['text'] = data.get('text_hi') or data['text']
+            data['feedback'] = data.get('feedback_hi') or data['feedback']
+        elif language == 'mr':
+            data['text'] = data.get('text_mr') or data['text']
+            data['feedback'] = data.get('feedback_mr') or data['feedback']
+        
+        # Remove translation fields from response (cleaner API)
+        data.pop('text_hi', None)
+        data.pop('text_mr', None)
+        data.pop('feedback_hi', None)
+        data.pop('feedback_mr', None)
+        
+        return data
 
 
 class ScenarioCardSerializer(serializers.ModelSerializer):
-    choices = ChoiceSerializer(many=True, read_only=True)
+    """Dynamic serializer that returns localized scenario based on language context."""
+    choices = serializers.SerializerMethodField()
 
     class Meta:
         model = ScenarioCard
@@ -29,6 +90,37 @@ class ScenarioCardSerializer(serializers.ModelSerializer):
             'category', 'difficulty', 'choices',
             'adds_recurring_expense', 'expense_name'
         ]
+    
+    def get_choices(self, obj):
+        """Get choices with language context passed through."""
+        language = self.context.get('language', 'en')
+        return ChoiceSerializer(
+            obj.choices.all(), 
+            many=True, 
+            context={'language': language}
+        ).data
+    
+    def to_representation(self, instance):
+        """Override to return language-specific fields."""
+        data = super().to_representation(instance)
+        
+        # Get language from context (set in view)
+        language = self.context.get('language', 'en')
+        
+        if language == 'hi':
+            data['title'] = data.get('title_hi') or data['title']
+            data['description'] = data.get('description_hi') or data['description']
+        elif language == 'mr':
+            data['title'] = data.get('title_mr') or data['title']
+            data['description'] = data.get('description_mr') or data['description']
+        
+        # Remove translation fields from response (cleaner API)
+        data.pop('title_hi', None)
+        data.pop('title_mr', None)
+        data.pop('description_hi', None)
+        data.pop('description_mr', None)
+        
+        return data
 
 
 class RecurringExpenseSerializer(serializers.ModelSerializer):
@@ -115,9 +207,5 @@ class SubmitChoiceSerializer(serializers.Serializer):
         # Integrity Check
         if choice.card_id != card.id:
             raise serializers.ValidationError("Choice does not belong to the specified card.")
-            
-        # Check if already answered (Optional - strict mode)
-        # if PlayerChoice.objects.filter(session=session, card=card).exists():
-        #     raise serializers.ValidationError("You have already made a choice for this card.")
 
         return data
