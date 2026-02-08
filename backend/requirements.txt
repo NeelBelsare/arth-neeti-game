@@ -10,3 +10,4 @@ dj-database-url
 numpy
 pandas
 scikit-learn
+google-generativeai
