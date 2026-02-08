@@ -220,10 +220,6 @@ def skip_card(request):
     except PermissionDenied:
         return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
-
-
-
-
 @api_view(['GET'])
 def get_session(request, session_id):
     """Get current session state."""
@@ -238,7 +234,6 @@ def get_session(request, session_id):
     return Response({
         'session': GameSessionSerializer(session).data
     })
-
 
 @api_view(['POST'])
 @authentication_classes([FirebaseAuthentication])
@@ -292,7 +287,6 @@ def use_lifeline(request):
         'session': GameSessionSerializer(session).data
     })
 
-
 @api_view(['POST'])
 @authentication_classes([FirebaseAuthentication])
 @permission_classes([IsAuthenticated])
@@ -303,6 +297,7 @@ def get_ai_advice(request):
     """
     session_id = request.data.get('session_id')
     card_id = request.data.get('card_id')
+    language = request.data.get('lang', 'en')
 
     if not session_id or not card_id:
         return Response(
@@ -343,7 +338,8 @@ def get_ai_advice(request):
         scenario_description=card.description,
         choices=choices,
         player_wealth=session.wealth,
-        player_happiness=session.happiness
+        player_happiness=session.happiness,
+        language=language
     )
 
     return Response({
@@ -396,7 +392,6 @@ def get_leaderboard(request):
         'leaderboard': leaderboard
     })
 
-
 @api_view(['POST'])
 @authentication_classes([FirebaseAuthentication])
 @permission_classes([IsAuthenticated])
@@ -430,7 +425,6 @@ def buy_stock(request):
         return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
     except PermissionDenied:
         return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
-
 
 @api_view(['POST'])
 @authentication_classes([FirebaseAuthentication])
@@ -551,4 +545,3 @@ def get_market_history(request, session_id):
         data[h.sector].append({'month': h.month, 'price': h.price})
         
     return Response(data)
-

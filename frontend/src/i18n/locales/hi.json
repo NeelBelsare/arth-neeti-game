@@ -1,0 +1,46 @@
+{
+    "common": {
+        "start_game": "अपनी यात्रा शुरू करें",
+        "wealth": "संपत्ति",
+        "happiness": "खुशी",
+        "credit_score": "क्रेडिट स्कोर",
+        "submit": "विकल्प चुनें",
+        "skip": "छोड़ें",
+        "get_advice": "सलाह लें",
+        "read_aloud": "जोर से पढ़ें",
+        "ask_ncfe": "NCFE से सलाह लें",
+        "hint": "संकेत",
+        "ai_advisor": "AI सलाहकार",
+        "low_balance": "⚠️ कम शेष राशि। मदद की ज़रूरत है?",
+        "loan_family": "परिवार (₹5k)",
+        "loan_app": "इंस्टेंट ऐप (₹10k)",
+        "skip_question": "प्रश्न छोड़ें",
+        "skip_cost": "-5 खुशी, -10 क्रेडिट",
+        "ncfe_recommended": "NCFE अनुशंसित",
+        "requires_loan": "ऋण आवश्यक",
+        "savings": "बचत",
+        "credit": "क्रेडिट",
+        "cost": "लागत"
+    },
+    "game": {
+        "month": "महीना {{month}}",
+        "cards_remaining": "{{count}} कार्ड शेष",
+        "game_over": "खेल समाप्त"
+    },
+    "stock": {
+        "buy": "खरीदें",
+        "sell": "बेचें",
+        "portfolio": "आपका पोर्टफोलियो"
+    },
+    "category": {
+        "needs": "ज़रूरतें",
+        "wants": "इच्छाएं",
+        "emergency": "आपातकालीन",
+        "investment": "निवेश",
+        "social": "सामाजिक",
+        "trap": "जाल",
+        "news": "समाचार",
+        "quiz": "प्रश्नोत्तरी",
+        "career": "करियर"
+    }
+}

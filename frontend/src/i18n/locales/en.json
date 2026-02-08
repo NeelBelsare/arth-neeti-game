@@ -1,0 +1,46 @@
+{
+    "common": {
+        "start_game": "Start Your Journey",
+        "wealth": "Wealth",
+        "happiness": "Happiness",
+        "credit_score": "Credit Score",
+        "submit": "Submit Choice",
+        "skip": "Skip",
+        "get_advice": "Ask AI Advisor",
+        "read_aloud": "Read Aloud",
+        "ask_ncfe": "Ask NCFE for advice",
+        "hint": "Hint",
+        "ai_advisor": "AI Advisor",
+        "low_balance": "⚠️ Low balance. Need help?",
+        "loan_family": "Family (₹5k)",
+        "loan_app": "Instant App (₹10k)",
+        "skip_question": "Skip Question",
+        "skip_cost": "-5 happiness, -10 credit",
+        "ncfe_recommended": "NCFE Recommended",
+        "requires_loan": "Requires loan",
+        "savings": "Savings",
+        "credit": "Credit",
+        "cost": "Cost"
+    },
+    "game": {
+        "month": "Month {{month}}",
+        "cards_remaining": "{{count}} cards remaining",
+        "game_over": "Game Over"
+    },
+    "stock": {
+        "buy": "Buy",
+        "sell": "Sell",
+        "portfolio": "Your Portfolio"
+    },
+    "category": {
+        "needs": "Needs",
+        "wants": "Wants",
+        "emergency": "Emergency",
+        "investment": "Investment",
+        "social": "Social",
+        "trap": "Trap",
+        "news": "News",
+        "quiz": "Quiz",
+        "career": "Career"
+    }
+}

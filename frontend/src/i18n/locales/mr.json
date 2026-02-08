@@ -1,0 +1,34 @@
+{
+    "common": {
+        "start_game": "आपला प्रवास सुरू करा",
+        "wealth": "संपत्ती",
+        "happiness": "आनंद",
+        "credit_score": "क्रेडिट स्कोर",
+        "submit": "पर्याय निवडा",
+        "skip": "वगळा",
+        "get_advice": "सल्ला घ्या",
+        "read_aloud": "मोठ्याने वाचा",
+        "ask_ncfe": "NCFE कडून सल्ला घ्या",
+        "hint": "संकेत",
+        "ai_advisor": "AI सल्लागार",
+        "low_balance": "⚠️ कमी शिल्लक. मदत हवी आहे?",
+        "loan_family": "कुटुंब (₹5k)",
+        "loan_app": "इन्स्टंट ॲप (₹10k)",
+        "skip_question": "प्रश्न वगळा",
+        "ncfe_recommended": "NCFE शिफारस केलेले",
+        "requires_loan": "कर्ज आवश्यक",
+        "savings": "बचत",
+        "credit": "क्रेडिट",
+        "cost": "किंमत"
+    },
+    "game": {
+        "month": "महिना {{month}}",
+        "cards_remaining": "{{count}} कार्ड बाकी",
+        "game_over": "खेळ संपला"
+    },
+    "stock": {
+        "buy": "खरेदी करा",
+        "sell": "विक्री करा",
+        "portfolio": "तुमचा पोर्टफोलिओ"
+    }
+}

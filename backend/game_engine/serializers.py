@@ -9,8 +9,10 @@ class ChoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Choice
         fields = [
-            'id', 'text', 'wealth_impact', 'happiness_impact', 
+            'id', 'text', 'text_hi', 'text_mr',
+            'wealth_impact', 'happiness_impact', 
             'credit_impact', 'literacy_impact', 
+            'feedback', 'feedback_hi', 'feedback_mr',
             'adds_recurring_expense', 'expense_name', 'cancels_expense_name'
         ]
 

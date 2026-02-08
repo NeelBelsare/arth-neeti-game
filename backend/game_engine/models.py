@@ -223,6 +223,8 @@ class Choice(models.Model):
     """The options available for each ScenarioCard."""
     card = models.ForeignKey(ScenarioCard, on_delete=models.CASCADE, related_name='choices')
     text = models.CharField(max_length=200)  # e.g., "Go with them (-₹10k)"
+    text_hi = models.CharField(max_length=200, blank=True, null=True)
+    text_mr = models.CharField(max_length=200, blank=True, null=True)
 
     # Consequences (Delta values)
     wealth_impact = models.IntegerField(default=0)      # e.g., -10000
@@ -232,6 +234,8 @@ class Choice(models.Model):
 
     # Educational Feedback (shown after choice)
     feedback = models.TextField(blank=True)
+    feedback_hi = models.TextField(blank=True, null=True)
+    feedback_mr = models.TextField(blank=True, null=True)
     is_recommended = models.BooleanField(default=False)  # For analytics: was this the "right" choice?
     
     # NEW: For choices that add recurring expenses

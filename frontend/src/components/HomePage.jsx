@@ -2,9 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './HomePage.css';
 import BudgetDisplay from './BudgetDisplay';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 const HomePage = ({ onStartGame, isLoading, username }) => {
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     return (
         <div className="home-page">
@@ -31,6 +34,11 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                 </button>
             </div>
 
+            {/* Language Switcher - Top Right */}
+            <div className="home-lang-switcher" style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10 }}>
+                <LanguageSwitcher />
+            </div>
+
             {/* Hero Section */}
             <div className="hero-section">
                 <div className="hero-icon">💼💰</div>
@@ -53,7 +61,7 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                     ) : (
                         <>
                             <span className="play-icon">▶</span>
-                            Start Your Journey
+                            {t('common.start_game')}
                         </>
                     )}
                 </button>
@@ -82,9 +90,9 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                         <h3 className="card-title">Your Stats</h3>
                         <div className="card-content">
                             <ul className="stats-list">
-                                <li><span className="stat-emoji">💰</span> <strong>Wealth</strong> - Your bank balance (Starting: ₹25,000)</li>
-                                <li><span className="stat-emoji">😊</span> <strong>Well-being</strong> - Your happiness & mental health</li>
-                                <li><span className="stat-emoji">📊</span> <strong>Credit Score</strong> - CIBIL score (300-900)</li>
+                                <li><span className="stat-emoji">💰</span> <strong>{t('common.wealth')}</strong> - Your bank balance (Starting: ₹25,000)</li>
+                                <li><span className="stat-emoji">😊</span> <strong>{t('common.happiness')}</strong> - Your happiness & mental health</li>
+                                <li><span className="stat-emoji">📊</span> <strong>{t('common.credit_score')}</strong> - CIBIL score (300-900)</li>
                                 <li><span className="stat-emoji">🧾</span> <strong>Monthly Bills</strong> - Living costs + subscriptions</li>
                             </ul>
                         </div>

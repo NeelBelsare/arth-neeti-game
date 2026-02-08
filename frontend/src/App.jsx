@@ -44,7 +44,6 @@ function GameComponent() {
     const [gameOverData, setGameOverData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [lang, setLang] = useState('en');
 
     useEffect(() => {
         const initGame = async () => {
@@ -277,25 +276,6 @@ function GameComponent() {
         <div className="container game-container" style={{ paddingTop: '1rem', paddingBottom: '2rem' }}>
             <GameHeader />
             <div className="game-toolbar">
-                <div className="language-toggle">
-                    <span>Language:</span>
-                    <div className="language-buttons">
-                        <button
-                            type="button"
-                            className={lang === 'en' ? 'active' : ''}
-                            onClick={() => setLang('en')}
-                        >
-                            En
-                        </button>
-                        <button
-                            type="button"
-                            className={lang === 'hi' ? 'active' : ''}
-                            onClick={() => setLang('hi')}
-                        >
-                            Hi
-                        </button>
-                    </div>
-                </div>
                 <div className="game-toolbar-links">
                     <button type="button" onClick={() => navigate('/stock-market')} className="game-toolbar-btn">
                         Stock Market
@@ -319,7 +299,6 @@ function GameComponent() {
                 onTakeLoan={handleTakeLoan}
                 onGetAIAdvice={handleGetAIAdvice}
                 onSkipCard={handleSkipCard}
-                lang={lang}
             />
         </div>
     );

@@ -29,23 +29,23 @@ def initialize_firebase():
             service_account_info = json.loads(service_account_json)
             cred = credentials.Certificate(service_account_info)
             firebase_admin.initialize_app(cred)
-            print("✅ Firebase initialized successfully from JSON env variable")
+            print("[SUCCESS] Firebase initialized successfully from JSON env variable")
             return
         except json.JSONDecodeError as e:
-            print(f"❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
+            print(f"[ERROR] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
     
     # Try loading from file path (for local development)
     service_account_path = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', '')
-    print(f"🔍 DEBUG: Checking FIREBASE_SERVICE_ACCOUNT_PATH: '{service_account_path}'")
+    print(f"DEBUG: Checking FIREBASE_SERVICE_ACCOUNT_PATH: '{service_account_path}'")
     if service_account_path:
-        print(f"🔍 DEBUG: File exists? {os.path.exists(service_account_path)}")
+        print(f"DEBUG: File exists? {os.path.exists(service_account_path)}")
     if service_account_path and os.path.exists(service_account_path):
         cred = credentials.Certificate(service_account_path)
         firebase_admin.initialize_app(cred)
-        print(f"✅ Firebase initialized successfully from file: {service_account_path}")
+        print(f"[SUCCESS] Firebase initialized successfully from file: {service_account_path}")
         return
     
-    print("⚠️  WARNING: Firebase not initialized. Set FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON")
+    print("[WARNING] Firebase not initialized. Set FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON")
 
 
 def get_firebase_user(id_token):

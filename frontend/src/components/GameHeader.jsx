@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import LanguageSwitcher from './LanguageSwitcher';
 import './GameHeader.css';
 
 /**
@@ -16,15 +17,20 @@ export default function GameHeader() {
                     <span className="game-header-icon" aria-hidden>₹</span>
                     <h1 className="game-header-title">Arth Neeti</h1>
                 </div>
-                <button
-                    type="button"
-                    className="game-header-quit"
-                    onClick={() => navigate('/')}
-                    aria-label="Quit game"
-                >
-                    <span className="game-header-quit-icon" aria-hidden>↻</span>
-                    <span>Quit</span>
-                </button>
+                <div className="game-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div className="header-lang-switcher" style={{ marginRight: '0.5rem' }}>
+                        <LanguageSwitcher />
+                    </div>
+                    <button
+                        type="button"
+                        className="game-header-quit"
+                        onClick={() => navigate('/')}
+                        aria-label="Quit game"
+                    >
+                        <span className="game-header-quit-icon" aria-hidden>↻</span>
+                        <span>Quit</span>
+                    </button>
+                </div>
             </div>
         </header>
     );
