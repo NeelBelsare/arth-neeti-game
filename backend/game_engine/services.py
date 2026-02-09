@@ -1,9 +1,11 @@
+import os
 import random
 import uuid
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from .models import GameSession, PlayerChoice, RecurringExpense, GameHistory, PlayerProfile, ScenarioCard, StockHistory, FuturesContract
 from .ml.predictor import MarketPredictor
+from .advisor import GENAI_AVAILABLE, genai
 
 class GameEngine:
     # Game Configuration Constants
@@ -19,8 +21,53 @@ class GameEngine:
         'MIN_CREDIT': 300,
         'MAX_CREDIT': 900,
         'MONTHLY_SALARY': 25000,
-        'STOCK_SECTORS': ['gold', 'tech', 'real_estate']
+        'STOCK_SECTORS': ['gold', 'tech', 'real_estate'],
+        'LEVEL_THRESHOLDS': [
+            {'level': 1, 'min_month': 1, 'min_literacy': 0},
+            {'level': 2, 'min_month': 4, 'min_literacy': 20},
+            {'level': 3, 'min_month': 7, 'min_literacy': 45},
+            {'level': 4, 'min_month': 10, 'min_literacy': 70}
+        ],
+        'LEVEL_CARD_FILTERS': {
+            1: {
+                'max_difficulty': 2,
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL']
+            },
+            2: {
+                'max_difficulty': 3,
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS']
+            },
+            3: {
+                'max_difficulty': 4,
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS', 'QUIZ', 'TRAP']
+            },
+            4: {
+                'max_difficulty': 5,
+                'categories': None
+            }
+        },
+        'LEVEL_UNLOCKS': {
+            'loans': 2,
+            'investing': 2,
+            'diversification': 3,
+            'mastery': 4
+        }
     }
+    REPORT_PROMPT_TEMPLATE = (
+        "You are an expert financial coach. Generate a concise Markdown report for the player. "
+        "Use the sections: Summary, Highlights, Risks, Recommendations. "
+        "Be supportive, specific, and keep it under 400 words.\n\n"
+        "Game outcome reason: {reason}\n"
+        "Final month: {current_month}\n"
+        "Final wealth: ₹{wealth}\n"
+        "Final happiness: {happiness}\n"
+        "Final credit score: {credit_score}\n"
+        "Financial literacy: {financial_literacy}\n"
+        "Recurring expenses: ₹{recurring_expenses}\n"
+        "Portfolio value: ₹{portfolio_value}\n"
+        "Portfolio breakdown: {portfolio_breakdown}\n\n"
+        "Gameplay log:\n{gameplay_log}\n"
+    )
 
     # ================= SECURITY =================
     @staticmethod
@@ -45,6 +92,7 @@ class GameEngine:
             credit_score=GameEngine.CONFIG['CREDIT_SCORE_START'],
             current_month=GameEngine.CONFIG['START_MONTH']
         )
+        session.current_level = GameEngine._calculate_level(session)
         # Init market trends
         session.market_trends = {s: 0 for s in GameEngine.CONFIG['STOCK_SECTORS']}
         session.save()
@@ -100,20 +148,35 @@ class GameEngine:
         - Weights by difficulty vs literacy.
         - Ensures variety.
         """
+        GameEngine._refresh_level(session)
+        level_filters = GameEngine.CONFIG['LEVEL_CARD_FILTERS'].get(
+            session.current_level,
+            GameEngine.CONFIG['LEVEL_CARD_FILTERS'][1]
+        )
         # 1. Filter valid cards
         shown_ids = PlayerChoice.objects.filter(session=session).values_list('card_id', flat=True)
         
         available = ScenarioCard.objects.filter(
              is_active=True,
-             min_month__lte=session.current_month
+             min_month__lte=session.current_month,
+             difficulty__lte=level_filters['max_difficulty']
         ).exclude(id__in=shown_ids)
+
+        if level_filters['categories']:
+            available = available.filter(category__in=level_filters['categories'])
+
+        if not available.exists():
+            available = ScenarioCard.objects.filter(
+                is_active=True,
+                min_month__lte=session.current_month
+            ).exclude(id__in=shown_ids)
         
         if not available.exists():
-             # Fallback: Allow repeats if deck exhausted
-             available = ScenarioCard.objects.filter(
-                 is_active=True,
-                 min_month__lte=session.current_month
-             )
+            # Fallback: Allow repeats if deck exhausted
+            available = ScenarioCard.objects.filter(
+                is_active=True,
+                min_month__lte=session.current_month
+            )
              
         if not available.exists():
             return None # Should handle "End Game" or "No Cards" upstream
@@ -156,6 +219,14 @@ class GameEngine:
     @staticmethod
     def process_choice(session, card, choice):
         """Main game loop step."""
+        GameEngine._append_gameplay_log(
+            session,
+            (
+                f"Month {session.current_month}: {card.title} — {choice.text}. "
+                f"Impact: wealth {choice.wealth_impact:+}, happiness {choice.happiness_impact:+}, "
+                f"credit {choice.credit_impact:+}, literacy {choice.literacy_impact:+}."
+            ),
+        )
         
         # 1. Apply Direct Impacts
         session.wealth += choice.wealth_impact
@@ -234,6 +305,7 @@ class GameEngine:
             feedback_parts.append(result['report'])
             
             if result['game_over']:
+                GameEngine._finalize_game(session, result['game_over_reason'])
                 return {
                     'session': session,
                     'feedback': " ".join(feedback_parts),
@@ -245,10 +317,7 @@ class GameEngine:
         # 6. Check Game Over (Immediate, e.g. from choice impact)
         game_over, reason = GameEngine._check_game_over(session)
         if game_over:
-            session.is_active = False
             GameEngine._finalize_game(session, reason)
-
-        session.save()
 
         return {
             'session': session,
@@ -275,17 +344,31 @@ class GameEngine:
         elif card.category == 'INVESTMENT':
             credit_loss = 10  # Missed opportunity
 
+        GameEngine._append_gameplay_log(
+            session,
+            (
+                f"Month {session.current_month}: Skipped {card.title}. "
+                f"Penalty: happiness -{happiness_loss}, credit -{credit_loss}."
+            ),
+        )
+
         session.happiness = max(0, session.happiness - happiness_loss)
         session.credit_score = max(300, session.credit_score - credit_loss)
         
         # Log as skipped (choice=None)
         PlayerChoice.objects.create(session=session, card=card, choice=None)
 
-        session.save()
+        game_over, reason = GameEngine._check_game_over(session)
+        if game_over:
+            GameEngine._finalize_game(session, reason)
+        else:
+            session.save()
         
         return {
             'message': f"Skipped! Penalty: -{happiness_loss} Happiness, -{credit_loss} Credit Score.",
-            'session': session
+            'session': session,
+            'game_over': game_over,
+            'game_over_reason': reason
         }
 
     # ================= ECONOMICS & MARKET =================
@@ -303,6 +386,7 @@ class GameEngine:
         months_passed = 1 # Simple 1 month step
         
         report_lines = [f"📅 Month {session.current_month} Started!"]
+        GameEngine._refresh_level(session)
 
         # 2. Income (Salary)
         salary_credit = GameEngine.CONFIG['MONTHLY_SALARY']
@@ -403,6 +487,9 @@ class GameEngine:
         Smart Loan System.
         Limit based on credit score.
         """
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['loans']:
+            return {'error': "Loans unlock at Level 2."}
         # Calculate Credit Limit
         # Score 700 -> ₹14,000 limit
         credit_limit = session.credit_score * 30
@@ -463,10 +550,75 @@ class GameEngine:
 
     @staticmethod
     def _finalize_game(session, reason):
-        # ... (Same as before) ...
-        # Copied for completeness or import from existing logic
+        session.is_active = False
+        if not session.final_report:
+            session.final_report = GameEngine._generate_final_report(session, reason)
+        session.save()
         GameEngine._save_history(session, reason)
 
+    @staticmethod
+    def _append_gameplay_log(session, entry):
+        entry = entry.strip()
+        if not entry:
+            return
+        if session.gameplay_log:
+            session.gameplay_log = f"{session.gameplay_log}\n{entry}"
+        else:
+            session.gameplay_log = entry
+
+    @staticmethod
+    def _generate_final_report(session, reason):
+        portfolio_value = 0
+        portfolio_lines = []
+        if session.portfolio and session.market_prices:
+            for sector, units in session.portfolio.items():
+                price = session.market_prices.get(sector, 100)
+                value = int(units * price)
+                portfolio_value += value
+                if units:
+                    portfolio_lines.append(f"{sector.title()}: {units:.2f} units @ ₹{price} (₹{value})")
+        portfolio_breakdown = "; ".join(portfolio_lines) if portfolio_lines else "No active holdings."
+        gameplay_log = session.gameplay_log or "No gameplay log recorded."
+
+        prompt = GameEngine.REPORT_PROMPT_TEMPLATE.format(
+            reason=reason,
+            current_month=session.current_month,
+            wealth=session.wealth,
+            happiness=session.happiness,
+            credit_score=session.credit_score,
+            financial_literacy=session.financial_literacy,
+            recurring_expenses=session.recurring_expenses,
+            portfolio_value=portfolio_value,
+            portfolio_breakdown=portfolio_breakdown,
+            gameplay_log=gameplay_log,
+        )
+
+        if GENAI_AVAILABLE and genai and os.environ.get('GEMINI_API_KEY'):
+            try:
+                genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(prompt)
+                if response and getattr(response, 'text', None):
+                    return response.text.strip()
+            except Exception:
+                pass
+
+        return (
+            "## Summary\n"
+            f"- Outcome: **{reason}** after month **{session.current_month}**.\n"
+            f"- Final cash: **₹{session.wealth}**. Portfolio value: **₹{portfolio_value}**.\n"
+            f"- Happiness: **{session.happiness}**. Credit score: **{session.credit_score}**.\n\n"
+            "## Highlights\n"
+            f"- Portfolio: {portfolio_breakdown}\n"
+            f"- Recurring expenses: ₹{session.recurring_expenses}\n\n"
+            "## Risks\n"
+            "- Watch cash flow relative to recurring bills.\n"
+            "- Keep credit score healthy by avoiding high-interest debt.\n\n"
+            "## Recommendations\n"
+            "- Build a 3–6 month emergency fund.\n"
+            "- Automate savings with a monthly SIP.\n"
+            "- Review recurring expenses and cancel low-value subscriptions.\n"
+        )
     @staticmethod
     def _save_history(session, reason):
         persona_data = GameEngine.generate_persona(session)
@@ -503,6 +655,15 @@ class GameEngine:
         """
         Buy stocks in a specific sector.
         """
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['investing']:
+            return {'error': "Investing unlocks at Level 2."}
+        if (
+            session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['diversification']
+            and session.portfolio
+            and any(units > 0 for s, units in session.portfolio.items() if s != sector)
+        ):
+            return {'error': "Diversification unlocks at Level 3. Stick to one sector for now."}
         if sector not in GameEngine.CONFIG['STOCK_SECTORS']:
             return {'error': "Invalid sector."}
             
@@ -579,6 +740,9 @@ class GameEngine:
         """
         Executes a Futures Contract sale.
         """
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['mastery']:
+            return {'error': "Mastery futures unlock at Level 4."}
         if sector not in session.market_prices:
             return {'error': "Invalid sector"}
             
@@ -642,3 +806,20 @@ class GameEngine:
             'final_score': s,
             'net_worth': w
         }
+
+    @staticmethod
+    def _calculate_level(session):
+        level = 1
+        for threshold in GameEngine.CONFIG['LEVEL_THRESHOLDS']:
+            if (
+                session.current_month >= threshold['min_month']
+                or session.financial_literacy >= threshold['min_literacy']
+            ):
+                level = threshold['level']
+        return level
+
+    @staticmethod
+    def _refresh_level(session):
+        next_level = GameEngine._calculate_level(session)
+        if session.current_level != next_level:
+            session.current_level = next_level

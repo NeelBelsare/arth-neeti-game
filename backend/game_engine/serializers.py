@@ -117,12 +117,12 @@ class GameSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = GameSession
         fields = [
-            'id', 'username', 'current_month', 'wealth',
+            'id', 'username', 'current_month', 'current_level', 'wealth',
             'happiness', 'credit_score', 'financial_literacy', 
             'lifelines', 'is_active',
             'real_estate_holdings', 'gold_holdings', 'current_level',
             'market_prices', 'portfolio', 'recurring_expenses',
-            'active_expenses', 'income_sources', 'persona_profile'
+
         ]
         read_only_fields = ['id', 'username', 'financial_literacy', 'lifelines']
 

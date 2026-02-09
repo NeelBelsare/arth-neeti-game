@@ -89,8 +89,7 @@ class GameSession(models.Model):
     financial_literacy = models.IntegerField(default=0)  # Hidden Score for persona
     lifelines = models.IntegerField(default=3)      # "Ask NCFE" hints available
     is_active = models.BooleanField(default=True)
-    real_estate_holdings = models.IntegerField(default=0)
-    gold_holdings = models.IntegerField(default=0)
+
     current_level = models.IntegerField(default=1)
     
     # --- NEW: Stock Market 2.0 ---
@@ -106,6 +105,10 @@ class GameSession(models.Model):
     # --- NEW: Recurring Expenses ---
     # This acts as a CACHE for the total monthly drain, updated by advance_month
     recurring_expenses = models.IntegerField(default=0)
+
+    # --- NEW: Gameplay Log & Final Report ---
+    gameplay_log = models.TextField(blank=True, default="")
+    final_report = models.TextField(blank=True, default="")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
