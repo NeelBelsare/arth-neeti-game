@@ -13,7 +13,7 @@ const Leaderboard = () => {
                 setLoading(false);
             })
             .catch(err => {
-                console.error('Failed to fetch leaderboard:', err);
+                if (import.meta.env.DEV) console.error('Failed to fetch leaderboard:', err);
                 setLoading(false);
             });
     }, []);

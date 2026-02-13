@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../contexts/SessionContext';
 import { api } from '../api';
 import StockTicker from '../components/StockTicker';
+import LoadingSkeleton from '../components/LoadingSkeleton';
 import './StockMarketPage.css';
 
 const StockMarketPage = ({ onBuy, onSell }) => {
@@ -25,7 +26,7 @@ const StockMarketPage = ({ onBuy, onSell }) => {
             setMarketData(data);
         } catch (err) {
             setError('Failed to load market data');
-            console.error(err);
+            if (import.meta.env.DEV) console.error(err);
         } finally {
             setIsLoading(false);
         }
@@ -63,9 +64,10 @@ const StockMarketPage = ({ onBuy, onSell }) => {
             </div>
 
             {isLoading ? (
-                <div className="loading-container">
-                    <div className="loading-spinner"></div>
-                    <p>Loading market data...</p>
+                <div className="loading-container" style={{ padding: '2rem' }}>
+                    <LoadingSkeleton variant="stats" lines={1} />
+                    <div style={{ height: '2rem' }} />
+                    <LoadingSkeleton variant="card" lines={3} />
                 </div>
             ) : error ? (
                 <div className="error-message">

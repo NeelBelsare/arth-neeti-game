@@ -355,3 +355,23 @@ class PlayerChoice(models.Model):
 
     def __str__(self):
         return f"Session {self.session.id} - {self.card.title}"
+
+
+class MarketTickerData(models.Model):
+    """
+    Source of Truth data for seeding the AI models.
+    Not linked to any game session.
+    """
+    ticker = models.CharField(max_length=20, db_index=True)
+    date = models.DateField()
+    close = models.FloatField()
+    rsi = models.FloatField()
+    macd = models.FloatField()
+    signal = models.FloatField()
+    daily_return = models.FloatField()
+
+    class Meta:
+        ordering = ['date']
+        indexes = [
+            models.Index(fields=['ticker', 'date']),
+        ]

@@ -12,6 +12,7 @@ Features:
 import os
 import random
 import time
+import logging
 from typing import Dict, List, Optional, Tuple
 from functools import lru_cache
 from dataclasses import dataclass
@@ -24,6 +25,8 @@ try:
 except ImportError:
     GROQ_AVAILABLE = False
     Groq = None
+
+logger = logging.getLogger(__name__)
 
 
 class Language(Enum):
@@ -47,9 +50,13 @@ class AdviceCategory(Enum):
 
 class AdvisorPersona(Enum):
     """Distinct personalities for the AI advisor."""
-    FRIENDLY = 'friendly' # Default: Encouraging, polite
-    STRICT = 'strict'     # Tough love, direct, risk-averse
-    SASSY = 'sassy'       # Gen-Z humor, sarcastic, relatable
+    FRIENDLY = 'friendly'   # Default: Encouraging, polite
+    STRICT = 'strict'       # Tough love, direct, risk-averse
+    SASSY = 'sassy'         # Gen-Z humor, sarcastic, relatable
+    HARSHAD = 'harshad'     # Risk Taker: "Risk hai toh ishq hai!"
+    JETTA = 'jetta'         # Business Guru: "Profit margin matters!"
+    VASOOLI = 'vasooli'     # Debt Collector: "Appun ka paisa kab dega?"
+    SUNDAR = 'sundar'       # Scamster: "Double your money in 2 months!"
 
 
 
@@ -62,6 +69,16 @@ class AdviceResult:
     language: str
     category: Optional[str] = None
     confidence: float = 1.0  # 0.0 to 1.0
+
+
+@dataclass
+class ChatbotMessage:
+    """A message from one of the contextual chatbot characters."""
+    character: str          # persona key: harshad, jetta, vasooli, sundar
+    message: str
+    choices: List[str]      # e.g. ['Ignore', 'Listen']
+    is_scam: bool = False   # True only for Sundar's trap offers
+    scam_loss_amount: int = 0
 
 
 class AdviceCache:
@@ -135,21 +152,21 @@ class FinancialAdvisor:
         if GROQ_AVAILABLE and self.api_key:
             try:
                 self.client = Groq(api_key=self.api_key)
-                print("Groq AI initialized successfully (Llama 3.1 8B)")
+                logger.info("Groq AI initialized successfully (Llama 3.1 8B)")
             except Exception as e:
-                print(f"Failed to initialize Groq: {e}")
+                logger.error("Failed to initialize Groq: %s", e)
                 self.client = None
         else:
             if not GROQ_AVAILABLE:
-                print("groq library not installed. Using fallback advice only.")
-                print("Install with: pip install groq")
+                logger.info("groq library not installed. Using fallback advice only.")
             elif not self.api_key:
-                print("GROQ_API_KEY not set. Using fallback advice only.")
+                logger.info("GROQ_API_KEY not set. Using fallback advice only.")
 
     def get_advice(
         self,
         scenario_title: str,
         scenario_description: str,
+        choices: List[Dict],
         current_wealth: int,
         current_happiness: int,
         language: str = 'en',
@@ -214,7 +231,7 @@ class FinancialAdvisor:
                         )
                 
                 except Exception as e:
-                    print(f"AI advice generation failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                    logger.warning("AI advice generation failed (attempt %d/%d): %s", attempt + 1, self.max_retries, e)
                     if attempt < self.max_retries - 1:
                         # Exponential backoff
                         time.sleep(2 ** attempt)
@@ -315,7 +332,7 @@ Start with an emoji that fits the advice tone."""
             return advice if advice else None
             
         except Exception as e:
-            print(f"Groq API error: {e}")
+            logger.error("Groq API error: %s", e)
             return None
 
     def _get_fallback_advice(self, category: AdviceCategory, language: str) -> str:
@@ -460,6 +477,166 @@ Start with an emoji that fits the advice tone."""
         
         # Return pool for category, fallback to GENERAL
         return pools.get(category, pools[AdviceCategory.GENERAL])
+
+    # --- Character system prompts for contextual chatbots ---
+    CHARACTER_SYSTEM_PROMPTS: Dict[str, str] = {
+        'harshad': (
+            "You are Harshad, a flamboyant risk-loving stock market bull from Mumbai. "
+            "You speak in a mix of Hindi and English (Hinglish). Your catchphrase is 'Risk hai toh ishq hai!' "
+            "You push the player to invest aggressively in stocks, options, and crypto. "
+            "You are charismatic but reckless. Keep it to 2 sentences max."
+        ),
+        'jetta': (
+            "You are Jetta Bhai, a shrewd South-Indian business mentor. "
+            "You speak with a South-Indian accent in English with occasional Tamil/Telugu words. "
+            "Your catchphrase is 'Ayyo! Profit margin matters!' "
+            "You focus on cutting expenses and maximizing ROI. Keep it to 2 sentences max."
+        ),
+        'vasooli': (
+            "You are Vasooli Bhai, a menacing but comedic debt collector from a Bollywood movie. "
+            "You speak in Mumbai tapori style. Your catchphrase is 'Appun ka paisa kab dega?' "
+            "You threaten the player (humorously) about unpaid debts and dropping happiness. "
+            "Keep it to 2 sentences max."
+        ),
+        'sundar': (
+            "You are Sundar, a smooth-talking online scamster. "
+            "You speak in overly polished, too-good-to-be-true language. "
+            "You offer schemes like 'Double your money in 2 months!' or 'Guaranteed 50% returns!' "
+            "Make the offer sound tempting but subtly suspicious. Keep it to 2 sentences max."
+        ),
+    }
+
+    # --- Curated fallback dialogues for when AI is unavailable ---
+    CHARACTER_FALLBACKS: Dict[str, List[str]] = {
+        'harshad': [
+            "Risk hai toh ishq hai! Why is your money sleeping in the bank? Buy Calls!",
+            "Arre yaar, the market is on fire! Put everything in tech stocks, trust me!",
+            "Bhai, F&O mein paisa hi paisa hai. Just close your eyes and buy!",
+            "Savings account? That's for losers! Real men buy options!",
+        ],
+        'jetta': [
+            "Ayyo! Profit margin matters. Cut the expenses on lifestyle!",
+            "Saar, why are you spending on wants when your needs are not covered? Very bad!",
+            "Listen da, first save 50% of income, then only think about spending!",
+            "Your expense ratio is worse than a bad mutual fund. Fix it!",
+        ],
+        'vasooli': [
+            "Appun ka paisa kab dega? Pay now or lose Happiness!",
+            "Aye! EMI miss kiya? Appun ko bahut gussa aata hai!",
+            "Tere paas itna karz hai, aur tu shopping kar raha hai? Pagal hai kya!",
+            "Chal chal, pehle loan chuka, phir masti kar!",
+        ],
+        'sundar': [
+            "Sir/Madam, I have an exclusive opportunity! Double your money in just 2 months! 100% guaranteed!",
+            "Congratulations! You've been selected for our VIP investment scheme. Just invest ₹10,000 and get ₹50,000 back!",
+            "Hello dear, my uncle works at SEBI. I have insider info on a stock that will go 10x. Just send me ₹5,000 to join!",
+            "Limited time offer! Our AI-powered crypto bot guarantees 50% monthly returns. No risk at all!",
+        ],
+    }
+
+    def get_proactive_message(
+        self,
+        trigger_type: str,
+        trigger_reason: str,
+        current_wealth: int,
+        current_happiness: int,
+        persona: AdvisorPersona = AdvisorPersona.FRIENDLY
+    ) -> str:
+        """
+        Generate proactive advice based on game state triggers.
+        """
+        prompt = f"""You are a {persona.value} financial advisor.
+The player has triggered a {trigger_type} alert: {trigger_reason}.
+Current Wealth: ₹{current_wealth}
+Current Happiness: {current_happiness}
+
+Give a short, punchy, 1-sentence reaction/advice."""
+
+        if self.client:
+            try:
+                completion = self.client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.8,
+                    max_tokens=60
+                )
+                return completion.choices[0].message.content.strip()
+            except Exception:
+                pass
+        
+        # Fallback
+        return f"Warning: {trigger_reason}. Watch your finances!"
+
+    def get_character_message(
+        self,
+        character: str,
+        trigger_reason: str,
+        current_wealth: int,
+        current_happiness: int,
+    ) -> ChatbotMessage:
+        """
+        Generate a contextual message from one of the game's chatbot characters.
+
+        Args:
+            character: One of 'harshad', 'jetta', 'vasooli', 'sundar'.
+            trigger_reason: Why this character was triggered.
+            current_wealth: Player's current wealth.
+            current_happiness: Player's current happiness.
+
+        Returns:
+            ChatbotMessage with character dialogue and interaction choices.
+        """
+        system_prompt = self.CHARACTER_SYSTEM_PROMPTS.get(character, '')
+        is_scam = character == 'sundar'
+        scam_loss = 0
+
+        if is_scam:
+            # Calculate scam loss: 20-50% of current wealth
+            scam_loss = int(current_wealth * random.uniform(0.2, 0.5))
+
+        # Build user prompt
+        user_prompt = (
+            f"The player currently has ₹{current_wealth:,} and happiness {current_happiness}/100. "
+            f"Context: {trigger_reason}. "
+            f"Generate your character's dialogue."
+        )
+
+        message = None
+        if self.client and system_prompt:
+            try:
+                completion = self.client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.9,
+                    max_tokens=100,
+                )
+                message = completion.choices[0].message.content.strip()
+            except Exception as e:
+                logger.warning("Character AI failed for %s: %s", character, e)
+
+        # Fallback to curated dialogue
+        if not message:
+            fallbacks = self.CHARACTER_FALLBACKS.get(character, ["Watch your finances!"])
+            message = random.choice(fallbacks)
+
+        # Determine choices based on character
+        if is_scam:
+            choices = [f'Invest ₹{scam_loss:,}', 'Ignore (Smart Move)']
+        elif character == 'vasooli':
+            choices = ['Pay EMI Now', 'Ignore (Risk Happiness)']
+        else:
+            choices = ['Listen', 'Ignore']
+
+        return ChatbotMessage(
+            character=character,
+            message=message,
+            choices=choices,
+            is_scam=is_scam,
+            scam_loss_amount=scam_loss,
+        )
 
 
 # Singleton instance

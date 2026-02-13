@@ -28,4 +28,7 @@ urlpatterns = [
     path('market/mutual-fund/invest/', views.invest_mutual_fund, name='invest-mutual-fund'),
     path('market/mutual-fund/redeem/', views.redeem_mutual_fund, name='redeem-mutual-fund'),
     path('market/ipo/apply/', views.apply_ipo, name='apply-ipo'),
+
+    # Chatbot
+    path('chatbot/respond/', views.respond_to_chatbot, name='respond-to-chatbot'),
 ]

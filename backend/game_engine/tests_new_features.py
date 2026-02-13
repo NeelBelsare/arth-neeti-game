@@ -82,6 +82,7 @@ class ValidationTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='player', password='password')
         self.session = GameSession.objects.create(user=self.user)
+        self.client.credentials(HTTP_X_TEST_USER='player')
         self.card = ScenarioCard.objects.create(title="Card", difficulty=1)
         self.choice = Choice.objects.create(card=self.card, text="Choice")
         self.other_card = ScenarioCard.objects.create(title="Other", difficulty=1)

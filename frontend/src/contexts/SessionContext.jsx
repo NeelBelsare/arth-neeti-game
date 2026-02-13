@@ -26,16 +26,16 @@ export const SessionProvider = ({ children }) => {
         setLoading(true);
         setError(null);
         try {
-            console.log('🎮 Starting new game session...');
+            if (import.meta.env.DEV) console.log('🎮 Starting new game session...');
             const data = await api.startGame();
-            console.log('✅ Game session started:', data.session.id);
+            if (import.meta.env.DEV) console.log('✅ Game session started:', data.session.id);
             
             setSession(data.session);
             localStorage.setItem(SESSION_STORAGE_KEY, data.session.id);
             
             return data.session;
         } catch (err) {
-            console.error('❌ Failed to start game:', err);
+            if (import.meta.env.DEV) console.error('❌ Failed to start game:', err);
             setError(err.message);
             throw err;
         } finally {
@@ -44,7 +44,7 @@ export const SessionProvider = ({ children }) => {
     }, []);
 
     const updateSession = useCallback((newSession) => {
-        console.log('🔄 Updating session:', newSession?.id);
+        if (import.meta.env.DEV) console.log('🔄 Updating session:', newSession?.id);
         setSession(newSession);
         if (newSession?.id) {
             localStorage.setItem(SESSION_STORAGE_KEY, newSession.id);
@@ -52,7 +52,7 @@ export const SessionProvider = ({ children }) => {
     }, []);
 
     const clearSession = useCallback(() => {
-        console.log('🧹 Clearing session');
+        if (import.meta.env.DEV) console.log('🧹 Clearing session');
         setSession(null);
         setError(null);
         localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -62,12 +62,12 @@ export const SessionProvider = ({ children }) => {
         setLoading(true);
         setError(null);
         try {
-            console.log('📥 Loading session:', sessionId);
+            if (import.meta.env.DEV) console.log('📥 Loading session:', sessionId);
             const data = await api.getSession(sessionId);
             setSession(data.session);
             return data.session;
         } catch (err) {
-            console.error('❌ Failed to load session:', err);
+            if (import.meta.env.DEV) console.error('❌ Failed to load session:', err);
             setError(err.message);
             throw err;
         } finally {

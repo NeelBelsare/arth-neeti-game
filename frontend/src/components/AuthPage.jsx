@@ -220,7 +220,7 @@ const AuthPage = ({ mode = 'login', onSuccess, onSwitchMode }) => {
                     onSuccess(); // Login successful after reload
                 }
             } catch (err) {
-                console.error("Redirect login failed:", err);
+                if (import.meta.env.DEV) console.error("Redirect login failed:", err);
             }
         };
         verifyLogin();

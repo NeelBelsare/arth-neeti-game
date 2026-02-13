@@ -164,31 +164,10 @@ class MarketEventSerializer(serializers.ModelSerializer):
 
 
 class SubmitChoiceSerializer(serializers.Serializer):
-    """Serializer for the submit-choice endpoint."""
-    session_id = serializers.IntegerField()
-    card_id = serializers.IntegerField()
-    choice_id = serializers.IntegerField()
-
-    def validate(self, data):
-        try:
-            session = GameSession.objects.get(id=data['session_id'])
-            if not session.is_active:
-                raise serializers.ValidationError("Game session is not active.")
-        except GameSession.DoesNotExist:
-            raise serializers.ValidationError("Session not found.")
-
-        try:
-            card = ScenarioCard.objects.get(id=data['card_id'])
-        except ScenarioCard.DoesNotExist:
-             raise serializers.ValidationError("Card not found.")
-             
-        try:
-            choice = Choice.objects.get(id=data['choice_id'])
-        except Choice.DoesNotExist:
-             raise serializers.ValidationError("Choice not found.")
-             
-        # Integrity Check
-        if choice.card_id != card.id:
-            raise serializers.ValidationError("Choice does not belong to the specified card.")
-
-        return data
+    """
+    Validates submit-choice payload structure only.
+    Existence/ownership checks are handled in the view with optimised queries.
+    """
+    session_id = serializers.IntegerField(min_value=1)
+    card_id = serializers.IntegerField(min_value=1)
+    choice_id = serializers.IntegerField(min_value=1)

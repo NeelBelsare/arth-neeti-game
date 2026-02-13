@@ -71,6 +71,8 @@ def start_game(request):
 
 
 @api_view(['GET'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def get_card(request, session_id):
     """
     Get a random scenario card appropriate for the current game month.
@@ -134,7 +136,10 @@ def submit_choice(request):
         )
 
     try:
-        choice = Choice.objects.get(id=choice_id, card_id=card_id)
+        # select_related avoids a second query when accessing choice.card
+        choice = Choice.objects.select_related(
+            'card', 'card__market_event'
+        ).get(id=choice_id, card_id=card_id)
     except Choice.DoesNotExist:
         return Response(
             {'error': 'Invalid choice.'},
@@ -150,6 +155,9 @@ def submit_choice(request):
         'session': GameSessionSerializer(result['session']).data,
         'game_over': result['game_over'],
     }
+
+    if result.get('chatbot'):
+        response_data['chatbot'] = result['chatbot']
 
     if result['game_over']:
         response_data['game_over_reason'] = result['game_over_reason']
@@ -225,15 +233,23 @@ def skip_card(request):
         return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
 @api_view(['GET'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def get_session(request, session_id):
     """Get current session state."""
     try:
-        session = GameSession.objects.get(id=session_id)
+        session = GameSession.objects.select_related(
+            'user', 'persona_profile'
+        ).prefetch_related(
+            'expenses', 'income_sources'
+        ).get(id=session_id)
     except GameSession.DoesNotExist:
         return Response(
             {'error': 'Session not found.'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+    GameEngine.validate_ownership(request.user, session)
 
     return Response({
         'session': GameSessionSerializer(session).data
@@ -318,7 +334,7 @@ def get_ai_advice(request):
         )
 
     try:
-        card = ScenarioCard.objects.get(id=card_id)
+        card = ScenarioCard.objects.prefetch_related('choices').get(id=card_id)
     except ScenarioCard.DoesNotExist:
         return Response(
             {'error': 'Card not found.'},
@@ -341,8 +357,8 @@ def get_ai_advice(request):
         scenario_title=card.title,
         scenario_description=card.description,
         choices=choices,
-        player_wealth=session.wealth,
-        player_happiness=session.happiness,
+        current_wealth=session.wealth,
+        current_happiness=session.happiness,
         language=language
     )
 
@@ -353,6 +369,7 @@ def get_ai_advice(request):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def get_leaderboard(request):
     """
     Get top 10 players by final score.
@@ -360,7 +377,7 @@ def get_leaderboard(request):
     # Get completed sessions with highest scores
     top_sessions = GameSession.objects.filter(
         is_active=False
-    ).order_by('-financial_literacy', '-wealth')[:10]
+    ).select_related('user').order_by('-financial_literacy', '-wealth')[:10]
 
     leaderboard = []
     for i, session in enumerate(top_sessions, 1):
@@ -467,6 +484,8 @@ def sell_stock(request):
 
 
 @api_view(['GET'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def market_status(request, session_id):
     """Get current market prices and portfolio value."""
     try:
@@ -478,8 +497,8 @@ def market_status(request, session_id):
     portfolio_value = 0
     holdings = []
     
-    # We need to know the sectors. GameEngine defines them.
-    stock_sectors = ['gold', 'tech', 'real_estate'] # Or import from GameEngine.CONFIG ideally
+    # Use canonical sector list from GameEngine config
+    stock_sectors = GameEngine.CONFIG['STOCK_SECTORS']
     
     for sector in stock_sectors:
         units = session.portfolio.get(sector, 0)
@@ -532,6 +551,8 @@ def trade_futures(request):
 
 
 @api_view(['GET'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
 def get_market_history(request, session_id):
     """Returns price history up to the CURRENT month for charts."""
     try:
@@ -642,3 +663,44 @@ def apply_ipo(request):
          return Response({'error': 'Invalid amount.'}, status=400)
     except GameSession.DoesNotExist:
          return Response({'error': 'Session not found.'}, status=404)
+
+
+@api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
+def respond_to_chatbot(request):
+    """
+    Handle the player's response to a contextual chatbot character.
+    Primarily used for Sundar's scam mechanic.
+    """
+    session_id = request.data.get('session_id')
+    character = request.data.get('character', '')
+    accepted = request.data.get('accepted', False)
+    scam_loss_amount = int(request.data.get('scam_loss_amount', 0))
+
+    if not session_id:
+        return Response({'error': 'session_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+    except GameSession.DoesNotExist:
+        return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+    except PermissionDenied:
+        return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+
+    if character == 'sundar':
+        result = GameEngine.process_scam_choice(session, accepted, scam_loss_amount)
+        return Response({
+            'message': result['message'],
+            'session': GameSessionSerializer(result['session']).data,
+            'game_over': result['game_over'],
+            'game_over_reason': result.get('game_over_reason'),
+        })
+
+    # For other characters (Harshad, Jetta, Vasooli) — acknowledgment only
+    return Response({
+        'message': f'{character.title()} noted your response.',
+        'session': GameSessionSerializer(session).data,
+        'game_over': False,
+    })

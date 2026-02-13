@@ -21,12 +21,12 @@ const validateConfig = () => {
     const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
     
     if (missingFields.length > 0) {
-        console.error('❌ Missing Firebase configuration:', missingFields);
-        console.error('Please check your .env file and ensure all VITE_FIREBASE_* variables are set');
+        if (import.meta.env.DEV) console.error('❌ Missing Firebase configuration:', missingFields);
+        if (import.meta.env.DEV) console.error('Please check your .env file and ensure all VITE_FIREBASE_* variables are set');
         return false;
     }
     
-    console.log('✅ Firebase configuration validated');
+    if (import.meta.env.DEV) console.log('✅ Firebase configuration validated');
     return true;
 };
 
@@ -36,12 +36,12 @@ if (!validateConfig()) {
 }
 
 // Initialize Firebase
-console.log('🔥 Initializing Firebase...');
+if (import.meta.env.DEV) console.log('🔥 Initializing Firebase...');
 const app = initializeApp(firebaseConfig);
-console.log('✅ Firebase initialized successfully');
+if (import.meta.env.DEV) console.log('✅ Firebase initialized successfully');
 
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
-console.log('✅ Firebase Auth initialized');
+if (import.meta.env.DEV) console.log('✅ Firebase Auth initialized');
 
 export default app;

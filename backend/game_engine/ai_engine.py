@@ -50,6 +50,7 @@ class AIGameMaster:
         "- Risk Appetite: {risk_appetite}\n"
         "- Current Wealth: ₹{wealth}\n"
         "- Current Month: {month}\n\n"
+        "{career_context}\n\n"
         "The scenario should fall into the category: {category}.\n"
         "Create 2-3 choices. Each choice must have:\n"
         "1. Text: The action the player takes.\n"
@@ -72,6 +73,41 @@ class AIGameMaster:
         "  ]\n"
         "}}"
     )
+
+    # Career-specific context injected into the prompt
+    CAREER_CONTEXTS = {
+        'Student (Fully Funded)': (
+            "The player is a fully-funded student with a fixed allowance. "
+            "Focus scenarios on: canteen expenses, group parties, buying online courses, "
+            "peer pressure to buy gadgets, college fest contributions, and splitting bills."
+        ),
+        'Student (Part Time)': (
+            "The player is a student with a part-time job and inconsistent income. "
+            "Focus scenarios on: balancing studies and work, freelance gig decisions, "
+            "textbook vs pirated copies, cheap food vs health, and saving for a laptop."
+        ),
+        'Fresher': (
+            "The player just got their first job. "
+            "Focus scenarios on: first salary splurge temptation, room rental decisions, "
+            "office lunch vs home food, starting an SIP, handling peer lifestyle inflation."
+        ),
+        'Professional': (
+            "The player is an experienced professional earning a stable salary. "
+            "Focus scenarios on: car vs public transport EMI, home loan decisions, "
+            "vacation planning, stock market timing, insurance policies, and tax saving."
+        ),
+        'Business Owner': (
+            "The player runs their own business. "
+            "Focus scenarios on: inventory purchase decisions, GST compliance costs, "
+            "hiring vs outsourcing, business expansion loans, tax raids, "
+            "client payment delays, and reinvesting profits vs personal withdrawal."
+        ),
+        'Retired': (
+            "The player is retired and living on savings/pension. "
+            "Focus scenarios on: medical expenses, fixed deposit renewals, "
+            "gifting money to grandchildren, rising utility bills, and avoiding scams."
+        ),
+    }
 
     def __init__(self):
         self.api_key = os.environ.get('GROQ_API_KEY')
@@ -101,13 +137,21 @@ class AIGameMaster:
         if not self.client:
             return None
 
+        # Resolve career-specific context
+        career_display = profile.get_career_stage_display()
+        career_context = self.CAREER_CONTEXTS.get(
+            career_display,
+            "Focus on general personal finance decisions relevant to the Indian context."
+        )
+
         # construct prompt
         prompt = self.SCENARIO_PROMPT_TEMPLATE.format(
-            career_stage=profile.get_career_stage_display(),
+            career_stage=career_display,
             risk_appetite=profile.get_risk_appetite_display(),
             wealth=wealth,
             month=month,
-            category=category
+            category=category,
+            career_context=career_context,
         )
 
         try:

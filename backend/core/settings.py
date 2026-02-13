@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import secrets
 from pathlib import Path
 import dj_database_url
 
@@ -22,7 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-01vw%&cm+om2ofpxaj$l%cyk9fzz3kv3w0x*&onhd@1ukqczq4')
+# In production, always set SECRET_KEY via environment variable.
+# The fallback generates a random key per process — safe for dev, forces you to set it in prod.
+SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_urlsafe(50)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
@@ -69,8 +72,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS settings - Allow all for hackathon (Vercel generates dynamic preview URLs)
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings — restrict to known frontend origins
+# Set CORS_ALLOWED_ORIGINS env var as comma-separated URLs, e.g.:
+# CORS_ALLOWED_ORIGINS=https://arth-neeti.vercel.app,http://localhost:5173
+_cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(',') if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'core.urls'
@@ -157,13 +163,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'game_engine.test_auth_backend.TestAuthentication',  # Enable test authentication
         'game_engine.firebase_auth.FirebaseAuthentication',  # Firebase auth
         'rest_framework.authentication.TokenAuthentication',  # Kept for backwards compatibility
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # Default to allow for guest users
+        'rest_framework.permissions.IsAuthenticated',  # Secure by default
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',
+        'user': '60/minute',
+    },
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'game_engine.exceptions.standard_exception_handler',
 }
 
 # Firebase Configuration

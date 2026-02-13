@@ -195,9 +195,9 @@ export const playSound = (type) => {
             }
 
             default:
-                console.warn('Unknown sound type:', type);
+                if (import.meta.env.DEV) console.warn('Unknown sound type:', type);
         }
     } catch (err) {
-        console.warn('Audio playback failed:', err);
+        if (import.meta.env.DEV) console.warn('Audio playback failed:', err);
     }
 };

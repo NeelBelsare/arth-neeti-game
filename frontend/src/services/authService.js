@@ -19,12 +19,12 @@ import { auth } from '../firebase/config';
  */
 export const registerWithEmail = async (email, password) => {
     try {
-        console.log('📝 Registering user with email:', email);
+        if (import.meta.env.DEV) console.log('📝 Registering user with email:', email);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        console.log('✅ User registered successfully:', userCredential.user.uid);
+        if (import.meta.env.DEV) console.log('✅ User registered successfully:', userCredential.user.uid);
         return userCredential.user;
     } catch (error) {
-        console.error('❌ Registration error:', error);
+        if (import.meta.env.DEV) console.error('❌ Registration error:', error);
         throw new Error(getFirebaseErrorMessage(error.code));
     }
 };
@@ -34,12 +34,12 @@ export const registerWithEmail = async (email, password) => {
  */
 export const loginWithEmail = async (email, password) => {
     try {
-        console.log('🔑 Logging in user with email:', email);
+        if (import.meta.env.DEV) console.log('🔑 Logging in user with email:', email);
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        console.log('✅ User logged in successfully:', userCredential.user.uid);
+        if (import.meta.env.DEV) console.log('✅ User logged in successfully:', userCredential.user.uid);
         return userCredential.user;
     } catch (error) {
-        console.error('❌ Login error:', error);
+        if (import.meta.env.DEV) console.error('❌ Login error:', error);
         throw new Error(getFirebaseErrorMessage(error.code));
     }
 };
@@ -49,21 +49,21 @@ export const loginWithEmail = async (email, password) => {
  */
 export const loginWithGoogle = async () => {
     try {
-        console.log('🔵 Initiating Google login...');
+        if (import.meta.env.DEV) console.log('🔵 Initiating Google login...');
         const provider = new GoogleAuthProvider();
         provider.addScope('profile');
         provider.addScope('email');
 
         // Use popup instead of redirect for better UX
         const result = await signInWithPopup(auth, provider);
-        console.log('✅ Google login successful:', result.user.email);
+        if (import.meta.env.DEV) console.log('✅ Google login successful:', result.user.email);
         return result.user;
     } catch (error) {
-        console.error('❌ Google login error:', error);
+        if (import.meta.env.DEV) console.error('❌ Google login error:', error);
 
         // If popup was blocked, fallback to redirect
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/network-request-failed' || error.message.includes('closed')) {
-            console.log('⚠️ Popup failed or blocked, switching to redirect strategy...');
+            if (import.meta.env.DEV) console.log('⚠️ Popup failed or blocked, switching to redirect strategy...');
             const provider = new GoogleAuthProvider();
             await signInWithRedirect(auth, provider);
             return null; // Will redirect
@@ -78,16 +78,16 @@ export const loginWithGoogle = async () => {
  */
 export const checkRedirectResult = async () => {
     try {
-        console.log('🔍 Checking for redirect result...');
+        if (import.meta.env.DEV) console.log('🔍 Checking for redirect result...');
         const result = await getRedirectResult(auth);
         if (result) {
-            console.log('✅ Redirect login successful:', result.user.email);
+            if (import.meta.env.DEV) console.log('✅ Redirect login successful:', result.user.email);
             return result.user;
         }
-        console.log('ℹ️ No redirect result found');
+        if (import.meta.env.DEV) console.log('ℹ️ No redirect result found');
         return null;
     } catch (error) {
-        console.error('❌ Redirect result error:', error);
+        if (import.meta.env.DEV) console.error('❌ Redirect result error:', error);
         throw new Error(getFirebaseErrorMessage(error.code));
     }
 };
@@ -97,11 +97,11 @@ export const checkRedirectResult = async () => {
  */
 export const logout = async () => {
     try {
-        console.log('👋 Logging out user...');
+        if (import.meta.env.DEV) console.log('👋 Logging out user...');
         await signOut(auth);
-        console.log('✅ User logged out successfully');
+        if (import.meta.env.DEV) console.log('✅ User logged out successfully');
     } catch (error) {
-        console.error('❌ Logout error:', error);
+        if (import.meta.env.DEV) console.error('❌ Logout error:', error);
         throw new Error('Failed to logout');
     }
 };
@@ -123,7 +123,7 @@ export const getIdToken = async (forceRefresh = false) => {
             const token = await user.getIdToken(forceRefresh);
             return token;
         } catch (error) {
-            console.error('❌ Failed to get ID token:', error);
+            if (import.meta.env.DEV) console.error('❌ Failed to get ID token:', error);
             return null;
         }
     }

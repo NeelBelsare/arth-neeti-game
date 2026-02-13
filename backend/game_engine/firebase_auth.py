@@ -4,12 +4,15 @@ Provides middleware and DRF authentication class for Firebase ID token verificat
 """
 import os
 import json
+import logging
 import firebase_admin
 from pathlib import Path
 from firebase_admin import auth, credentials
 from django.contrib.auth import get_user_model
 from django.utils.functional import SimpleLazyObject
 from rest_framework import authentication, exceptions
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -30,14 +33,14 @@ def initialize_firebase():
             service_account_info = json.loads(service_account_json)
             cred = credentials.Certificate(service_account_info)
             firebase_admin.initialize_app(cred)
-            print("[SUCCESS] Firebase initialized successfully from JSON env variable")
+            logger.info("Firebase initialized successfully from JSON env variable")
             return
         except json.JSONDecodeError as e:
-            print(f"[ERROR] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
+            logger.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: %s", e)
     
     # Try loading from file path (for local development)
     service_account_path = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', '')
-    print(f"DEBUG: Checking FIREBASE_SERVICE_ACCOUNT_PATH: '{service_account_path}'")
+    logger.debug("Checking FIREBASE_SERVICE_ACCOUNT_PATH: '%s'", service_account_path)
     
     if service_account_path:
         # Resolve path relative to BASE_DIR if it's not absolute
@@ -45,20 +48,20 @@ def initialize_firebase():
         path_obj = Path(service_account_path)
         if not path_obj.is_absolute():
             resolved_path = (settings.BASE_DIR / service_account_path).resolve()
-            print(f"DEBUG: Resolved relative path to: '{resolved_path}'")
+            logger.debug("Resolved relative path to: '%s'", resolved_path)
         else:
             resolved_path = path_obj
-            print(f"DEBUG: Using absolute path: '{resolved_path}'")
+            logger.debug("Using absolute path: '%s'", resolved_path)
 
         if resolved_path.exists():
             cred = credentials.Certificate(str(resolved_path))
             firebase_admin.initialize_app(cred)
-            print(f"[SUCCESS] Firebase initialized successfully from file: {resolved_path}")
+            logger.info("Firebase initialized successfully from file: %s", resolved_path)
             return
         else:
-            print(f"[ERROR] Service account file not found at: {resolved_path}")
+            logger.error("Service account file not found at: %s", resolved_path)
     
-    print("[WARNING] Firebase not initialized. Set FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON")
+    logger.warning("Firebase not initialized. Set FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON")
 
 
 def get_firebase_user(id_token):

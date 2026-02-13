@@ -93,7 +93,7 @@ const ScenarioCard = ({
                 setHints(hintsMap);
             }
         } catch (err) {
-            console.error('Failed to use lifeline:', err);
+            if (import.meta.env.DEV) console.error('Failed to use lifeline:', err);
         } finally {
             setIsUsingLifeline(false);
         }

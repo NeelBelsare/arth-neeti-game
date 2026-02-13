@@ -15,6 +15,10 @@ import StockMarketPage from './pages/StockMarketPage';
 import LoanPage from './pages/LoanPage';
 import AuthPage from './components/AuthPage';
 import ProfileScreen from './components/ProfileScreen';
+import ChatOverlay from './components/ChatOverlay';
+import ErrorBoundary from './components/ErrorBoundary';
+import LoadingSkeleton from './components/LoadingSkeleton';
+import { useGameActions } from './hooks/useGameActions';
 import './App.css';
 import './components/ReportModal.css';
 
@@ -44,6 +48,7 @@ function GameComponent() {
     const [gameOverData, setGameOverData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [chatbotData, setChatbotData] = useState(null);
 
     useEffect(() => {
         const initGame = async () => {
@@ -67,7 +72,7 @@ function GameComponent() {
                         localStorage.removeItem(SESSION_STORAGE_KEY);
                     }
                 } catch (err) {
-                    console.log('Could not resume session:', err);
+                    if (import.meta.env.DEV) console.log('Could not resume session:', err);
                     localStorage.removeItem(SESSION_STORAGE_KEY);
                 }
             }
@@ -89,6 +94,11 @@ function GameComponent() {
             });
             setGameState(GAME_STATE.FEEDBACK);
 
+            // Show chatbot if triggered
+            if (result.chatbot) {
+                setChatbotData(result.chatbot);
+            }
+
             if (result.game_over) {
                 setGameOverData({
                     reason: result.game_over_reason,
@@ -97,7 +107,7 @@ function GameComponent() {
             }
         } catch (err) {
             setError('Failed to submit choice');
-            console.error(err);
+            if (import.meta.env.DEV) console.error(err);
         } finally {
             setIsLoading(false);
         }
@@ -126,75 +136,21 @@ function GameComponent() {
                 setGameState(GAME_STATE.PLAYING);
             }
         } catch (err) {
-            setError('Failed to get next card');
-            console.error(err);
+            setError(err.message || 'Failed to get next card');
+            if (import.meta.env.DEV) console.error(err);
         } finally {
             setIsLoading(false);
         }
     }, [session, gameOverData]);
 
-    const handleUseLifeline = useCallback(async (cardId) => {
-        if (!session) return null;
-        try {
-            const result = await api.useLifeline(session.id, cardId);
-            if (result.session) {
-                updateSession(result.session);
-            }
-            return result;
-        } catch (err) {
-            console.error('Failed to use lifeline:', err);
-            return null;
-        }
-    }, [session, updateSession]);
-
-    const handleTakeLoan = useCallback(async (loanType) => {
-        if (!session) return null;
-        try {
-            const result = await api.takeLoan(session.id, loanType);
-            if (result.session) {
-                updateSession(result.session);
-            }
-            return result;
-        } catch (err) {
-            console.error('Failed to take loan:', err);
-            return null;
-        }
-    }, [session, updateSession]);
-
-    const handleGetAIAdvice = useCallback(async (cardId) => {
-        if (!session) return null;
-        try {
-            const result = await api.getAIAdvice(session.id, cardId);
-            return result;
-        } catch (err) {
-            console.error('Failed to get AI advice:', err);
-            return null;
-        }
-    }, [session]);
-
-    const handleBuyStock = useCallback(async (sector, amount) => {
-        if (!session) return null;
-        try {
-            const result = await api.buyStock(session.id, sector, amount);
-            if (result.session) updateSession(result.session);
-            return result;
-        } catch (err) {
-            console.error('Failed to buy stock:', err);
-            return { error: err.message };
-        }
-    }, [session, updateSession]);
-
-    const handleSellStock = useCallback(async (sector, units) => {
-        if (!session) return null;
-        try {
-            const result = await api.sellStock(session.id, sector, units);
-            if (result.session) updateSession(result.session);
-            return result;
-        } catch (err) {
-            console.error('Failed to sell stock:', err);
-            return { error: err.message };
-        }
-    }, [session, updateSession]);
+    // Use custom hook for game actions
+    const {
+        handleUseLifeline,
+        handleTakeLoan,
+        handleGetAIAdvice,
+        handleBuyStock,
+        handleSellStock,
+    } = useGameActions();
 
     const handleSkipCard = useCallback(async (cardId) => {
         if (!session || !cardId) return;
@@ -219,7 +175,7 @@ function GameComponent() {
                 setCurrentCard(cardData.card);
             }
         } catch (err) {
-            console.error('Failed to skip card:', err);
+            if (import.meta.env.DEV) console.error('Failed to skip card:', err);
         } finally {
             setIsLoading(false);
         }
@@ -295,16 +251,32 @@ function GameComponent() {
             </div>
 
             <GameStats session={session} />
-            <ScenarioCard
-                card={currentCard}
-                onChoiceSelect={handleChoiceSelect}
-                disabled={isLoading}
-                session={session}
-                onUseLifeline={handleUseLifeline}
-                onTakeLoan={handleTakeLoan}
-                onGetAIAdvice={handleGetAIAdvice}
-                onSkipCard={handleSkipCard}
-            />
+
+            {isLoading ? (
+                <div className="card-container">
+                    <LoadingSkeleton variant="card" />
+                </div>
+            ) : (
+                <ScenarioCard
+                    card={currentCard}
+                    onChoiceSelect={handleChoiceSelect}
+                    disabled={isLoading}
+                    session={session}
+                    onUseLifeline={handleUseLifeline}
+                    onTakeLoan={handleTakeLoan}
+                    onGetAIAdvice={handleGetAIAdvice}
+                    onSkipCard={handleSkipCard}
+                />
+            )}
+
+            {chatbotData && (
+                <ChatOverlay
+                    chatbotData={chatbotData}
+                    sessionId={session?.id}
+                    onDismiss={() => setChatbotData(null)}
+                    onSessionUpdate={updateSession}
+                />
+            )}
         </div>
     );
 };
@@ -325,7 +297,7 @@ function AppRoutes() {
             await startGame();
             navigate('/game');
         } catch (err) {
-            console.error('Failed to start game:', err);
+            if (import.meta.env.DEV) console.error('Failed to start game:', err);
         }
     }, [navigate, startGame]);
 
@@ -339,44 +311,16 @@ function AppRoutes() {
             clearSession();
             navigate('/auth/login', { replace: true });
         } catch (error) {
-            console.error('Logout failed:', error);
+            if (import.meta.env.DEV) console.error('Logout failed:', error);
         }
     }, [navigate, clearSession]);
 
-    const handleBuyStock = useCallback(async (sector, amount) => {
-        if (!session) return null;
-        try {
-            const result = await api.buyStock(session.id, sector, amount);
-            if (result.session) updateSession(result.session);
-            return result;
-        } catch (err) {
-            return { error: err.message };
-        }
-    }, [session, updateSession]);
-
-    const handleSellStock = useCallback(async (sector, units) => {
-        if (!session) return null;
-        try {
-            const result = await api.sellStock(session.id, sector, units);
-            if (result.session) updateSession(result.session);
-            return result;
-        } catch (err) {
-            return { error: err.message };
-        }
-    }, [session, updateSession]);
-
-    const handleTakeLoan = useCallback(async (loanType) => {
-        if (!session) return null;
-        try {
-            const result = await api.takeLoan(session.id, loanType);
-            if (result.session) {
-                updateSession(result.session);
-            }
-            return result;
-        } catch (err) {
-            return { error: err.message };
-        }
-    }, [session, updateSession]);
+    // Use custom hook for game actions
+    const {
+        handleTakeLoan,
+        handleBuyStock,
+        handleSellStock,
+    } = useGameActions();
 
     // Loading state is handled by AuthProvider wrapper
 
@@ -428,7 +372,9 @@ function App() {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthProvider>
                 <SessionProvider>
-                    <AppRoutes />
+                    <ErrorBoundary>
+                        <AppRoutes />
+                    </ErrorBoundary>
                 </SessionProvider>
             </AuthProvider>
         </Router>

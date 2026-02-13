@@ -98,7 +98,7 @@ function GameStats({ session }) {
 
     return (
         <div className="stats-dashboard">
-            <div className={`stats-card stats-cash ${flashState.wealth || ''}`}>
+            <div className={`stats-card stats-cash ${flashState.wealth || ''}`} >
                 <div className="stats-card-header">
                     <span className="stats-card-icon stats-icon-cash">💳</span>
                     <span className="stats-card-label">Current Cash</span>

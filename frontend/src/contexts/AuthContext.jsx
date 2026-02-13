@@ -21,16 +21,16 @@ export const AuthProvider = ({ children }) => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        console.log('🔐 AuthProvider: Setting up auth state listener');
+        if (import.meta.env.DEV) console.log('🔐 AuthProvider: Setting up auth state listener');
         
         // Subscribe to auth state changes
         const unsubscribe = onAuthChange(async (user) => {
             try {
-                console.log('🔐 Auth state changed:', user ? `User: ${user.email}` : 'No user');
+                if (import.meta.env.DEV) console.log('🔐 Auth state changed:', user ? `User: ${user.email}` : 'No user');
                 setCurrentUser(user);
                 setError(null);
             } catch (err) {
-                console.error('❌ Auth state change error:', err);
+                if (import.meta.env.DEV) console.error('❌ Auth state change error:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
         // Cleanup subscription on unmount
         return () => {
-            console.log('🔐 AuthProvider: Cleaning up auth listener');
+            if (import.meta.env.DEV) console.log('🔐 AuthProvider: Cleaning up auth listener');
             unsubscribe();
         };
     }, []);

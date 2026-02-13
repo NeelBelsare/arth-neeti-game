@@ -74,6 +74,9 @@ class ScenarioCardModelTests(TestCase):
 
 class StartGameAPITests(APITestCase):
     """Tests for the start_game API endpoint."""
+
+    def setUp(self):
+        self.client.credentials(HTTP_X_TEST_USER='testguest')
     
     def test_start_game_creates_unique_sessions(self):
         """Test that each start_game call creates a unique session."""
@@ -124,6 +127,7 @@ class SubmitChoiceAPITests(APITestCase):
             happiness=100,
             credit_score=700
         )
+        self.client.credentials(HTTP_X_TEST_USER='testplayer')
         # Create a test card with choices
         self.card = ScenarioCard.objects.create(
             title="Test Card",
@@ -227,6 +231,7 @@ class GameProgressionTests(APITestCase):
             happiness=100,
             credit_score=700
         )
+        self.client.credentials(HTTP_X_TEST_USER='progresstest')
         # Create multiple cards
         for i in range(5):
             card = ScenarioCard.objects.create(
